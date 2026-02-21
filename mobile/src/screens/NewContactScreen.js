@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors, spacing, typography, borderRadius, shadows } from '../theme/colors';
-import { contactsAPI } from '../services/api';
+import { contactsAPI, linkedinAPI } from '../services/api';
 import Button from '../components/Button';
 import Input from '../components/Input';
 import Tag from '../components/Tag';
@@ -71,6 +71,105 @@ const NewContactScreen = ({ navigation, route }) => {
 
   const source = route.params?.source || 'manual';
 
+  // LinkedIn auto-fill state
+  const [linkedinLookupUrl, setLinkedinLookupUrl] = useState('');
+  const [linkedinLoading, setLinkedinLoading] = useState(false);
+  const [linkedinStatus, setLinkedinStatus] = useState(null); // 'success' | 'partial' | 'error'
+
+  const handleLinkedInLookup = async () => {
+    const url = linkedinLookupUrl.trim();
+    if (!url) return;
+
+    // Normalize: if user just typed a vanity name, build the full URL
+    let lookupUrl = url;
+    if (!url.includes('linkedin.com')) {
+      lookupUrl = `https://www.linkedin.com/in/${url.replace(/^@/, '')}`;
+    } else if (!url.startsWith('http')) {
+      lookupUrl = `https://${url}`;
+    }
+
+    setLinkedinLoading(true);
+    setLinkedinStatus(null);
+
+    try {
+      const response = await linkedinAPI.lookup(lookupUrl);
+      const result = response.data;
+
+      // Always store the LinkedIn URL in the social links
+      if (result.linkedinUrl) {
+        setSocialLinks((prev) => ({ ...prev, linkedin: result.linkedinUrl }));
+      }
+
+      if (result.contactData) {
+        const data = result.contactData;
+        let fieldsFilledCount = 0;
+
+        // Fill identity fields (only if currently empty)
+        if (data.full_name && !fullName) {
+          setFullName(data.full_name);
+          fieldsFilledCount++;
+        }
+
+        // Fill professional fields (only if currently empty)
+        if (data.professional) {
+          if (data.professional.school && !school) {
+            setSchool(data.professional.school);
+            fieldsFilledCount++;
+          }
+          if (data.professional.company && !company) {
+            setCompany(data.professional.company);
+            fieldsFilledCount++;
+          }
+          if (data.professional.job_title && !jobTitle) {
+            setJobTitle(data.professional.job_title);
+            fieldsFilledCount++;
+          }
+        }
+
+        // Fill location if available
+        if (data.location && !location) {
+          setLocation(data.location);
+          fieldsFilledCount++;
+        }
+
+        // Add headline + summary as a note if we have one
+        if ((data.headline || data.summary) && !notes) {
+          const noteParts = [];
+          if (data.headline) noteParts.push(`LinkedIn: ${data.headline}`);
+          if (data.summary) noteParts.push(data.summary);
+          setNotes(noteParts.join('\n'));
+          fieldsFilledCount++;
+        }
+
+        // Determine status based on what was actually filled
+        if (fieldsFilledCount >= 3) {
+          setLinkedinStatus('success');
+        } else if (fieldsFilledCount > 0) {
+          setLinkedinStatus('partial');
+        } else {
+          // contactData existed but nothing new was filled (user already had values)
+          setLinkedinStatus('success');
+        }
+      } else {
+        setLinkedinStatus('partial');
+      }
+
+      // Show the note from the server if we got one
+      if (result.note && result.partial && !result.contactData) {
+        Alert.alert('LinkedIn Lookup', result.note);
+      }
+    } catch (error) {
+      const msg =
+        error.response?.data?.message ||
+        error.response?.data?.error ||
+        'Could not look up LinkedIn profile';
+      Alert.alert('LinkedIn Lookup', msg);
+      setLinkedinStatus('error');
+    } finally {
+      setLinkedinLoading(false);
+    }
+  };
+
   const getConfidence = (section, field) => {
     const cat = confidenceFields?.[section]?.[field];
     return cat?.status || null;
@@ -121,19 +220,19 @@ const NewContactScreen = ({ navigation, route }) => {
         appearance:
           heightRange || hairColor || glasses
             ? {
-                height_range: heightRange || undefined,
-                hair_color: hairColor || undefined,
-                glasses,
-              }
+              height_range: heightRange || undefined,
+              hair_color: hairColor || undefined,
+              glasses,
+            }
             : undefined,
         context:
           howMet || eventName || metDate || location
             ? {
-                how_met: howMet.trim() || undefined,
-                event_name: eventName.trim() || undefined,
-                met_date: metDate.trim() || undefined,
-                location: location.trim() || undefined,
-              }
+              how_met: howMet.trim() || undefined,
+              event_name: eventName.trim() || undefined,
+              met_date: metDate.trim() || undefined,
+              location: location.trim() || undefined,
+            }
             : undefined,
         notes: notes.trim()
           ? [{ content: notes.trim(), source: source === 'manual' ? 'manual' : 'ai_generated' }]
@@ -161,12 +260,12 @@ const NewContactScreen = ({ navigation, route }) => {
   };
 
   const sections = [
-    { key: 'identity', label: 'Identity', icon: '&#128100;' },
-    { key: 'professional', label: 'Professional', icon: '&#127891;' },
-    { key: 'social', label: 'Social', icon: '&#128279;' },
-    { key: 'appearance', label: 'Appearance', icon: '&#128065;' },
-    { key: 'context', label: 'Context', icon: '&#128205;' },
-    { key: 'notes', label: 'Notes & Tags', icon: '&#128221;' },
+    { key: 'identity', label: 'Identity' },
+    { key: 'professional', label: 'Professional' },
+    { key: 'social', label: 'Social' },
+    { key: 'appearance', label: 'Appearance' },
+    { key: 'context', label: 'Context' },
+    { key: 'notes', label: 'Notes & Tags' },
   ];
 
   return (
@@ -175,7 +274,7 @@ const NewContactScreen = ({ navigation, route }) => {
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
           <Text style={styles.backText}>Cancel</Text>
         </TouchableOpacity>
-        <Text style={styles.title}>New Contact</Text>
+        <Text style={styles.title} numberOfLines={1} adjustsFontSizeToFit>New Contact</Text>
         <Button
           title="Save"
           onPress={handleSave}
@@ -296,6 +395,45 @@ const NewContactScreen = ({ navigation, route }) => {
           {/* Social Section */}
           {activeSection === 'social' && (
             <View>
+              {/* LinkedIn Auto-fill Card */}
+              <View style={styles.linkedinCard}>
+                <Text style={styles.linkedinCardTitle}>Auto-fill from LinkedIn</Text>
+                <Text style={styles.linkedinCardDesc}>
+                  Paste a LinkedIn profile URL to auto-fill name, company, school, and more.
+                </Text>
+                <View style={styles.linkedinInputRow}>
+                  <View style={styles.linkedinInputWrapper}>
+                    <Input
+                      value={linkedinLookupUrl}
+                      onChangeText={setLinkedinLookupUrl}
+                      placeholder="linkedin.com/in/username"
+                      autoCapitalize="none"
+                      keyboardType="url"
+                      style={{ marginBottom: 0 }}
+                    />
+                  </View>
+                  <Button
+                    title={linkedinLoading ? '' : 'Lookup'}
+                    onPress={handleLinkedInLookup}
+                    loading={linkedinLoading}
+                    size="sm"
+                    disabled={!linkedinLookupUrl.trim() || linkedinLoading}
+                    style={styles.linkedinButton}
+                  />
+                </View>
+                {linkedinStatus === 'success' && (
+                  <Text style={styles.linkedinSuccess}>Profile data auto-filled! Review the other tabs to verify.</Text>
+                )}
+                {linkedinStatus === 'partial' && (
+                  <Text style={styles.linkedinPartial}>
+                    Some fields filled. LinkedIn may restrict data for this profile — check Identity &amp; Professional tabs.
+                  </Text>
+                )}
+                {linkedinStatus === 'error' && (
+                  <Text style={styles.linkedinError}>Lookup failed. You can still enter the URL manually below.</Text>
+                )}
+              </View>
+
               {SOCIAL_PLATFORMS.map((platform) => (
                 <Input
                   key={platform}
@@ -307,10 +445,12 @@ const NewContactScreen = ({ navigation, route }) => {
                   placeholder={
                     platform === 'website'
                       ? 'https://example.com'
-                      : `@username`
+                      : platform === 'linkedin'
+                        ? 'https://linkedin.com/in/username'
+                        : `@username`
                   }
                   autoCapitalize="none"
-                  keyboardType={platform === 'website' ? 'url' : 'default'}
+                  keyboardType={platform === 'website' || platform === 'linkedin' ? 'url' : 'default'}
                 />
               ))}
             </View>
@@ -463,28 +603,32 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
     borderBottomWidth: 1,
-    borderBottomColor: colors.border,
+    borderBottomColor: colors.borderLight, // softer separator
     backgroundColor: colors.white,
   },
   backButton: {
-    padding: spacing.xs,
+    padding: spacing.sm, // better tap target
   },
   backText: {
     ...typography.body,
-    color: colors.primary,
+    fontWeight: '600',
+    color: colors.textSecondary, // De-emphasize cancel slightly
   },
   title: {
     ...typography.h3,
     color: colors.textPrimary,
+    flex: 1,
+    textAlign: 'center',
+    marginHorizontal: spacing.sm,
   },
   sectionTabs: {
     backgroundColor: colors.white,
     borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-    maxHeight: 48,
+    borderBottomColor: colors.borderLight, // softer line
+    maxHeight: 56, // slightly taller
   },
   sectionTabsContent: {
     paddingHorizontal: spacing.md,
@@ -535,6 +679,56 @@ const styles = StyleSheet.create({
   },
   addTagButton: {
     marginTop: 2,
+  },
+
+  // LinkedIn auto-fill
+  linkedinCard: {
+    backgroundColor: colors.primaryBg,
+    borderWidth: 1,
+    borderColor: colors.primaryLight, // soft border
+    borderRadius: borderRadius.xl, // more rounded
+    padding: spacing.lg, // more padding
+    marginBottom: spacing.lg,
+    ...shadows.sm, // soft shadow float
+  },
+  linkedinCardTitle: {
+    ...typography.h3,
+    color: colors.primaryDark,
+    marginBottom: spacing.xs,
+  },
+  linkedinCardDesc: {
+    ...typography.bodySmall,
+    color: colors.textSecondary,
+    marginBottom: spacing.md,
+  },
+  linkedinInputRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.sm,
+  },
+  linkedinInputWrapper: {
+    flex: 1,
+  },
+  linkedinButton: {
+    marginTop: 2,
+  },
+  linkedinSuccess: {
+    ...typography.caption,
+    color: colors.success,
+    fontWeight: '600',
+    marginTop: spacing.sm,
+  },
+  linkedinPartial: {
+    ...typography.caption,
+    color: colors.warning,
+    fontWeight: '600',
+    marginTop: spacing.sm,
+  },
+  linkedinError: {
+    ...typography.caption,
+    color: colors.error,
+    fontWeight: '600',
+    marginTop: spacing.sm,
   },
 });
 

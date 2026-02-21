@@ -14,6 +14,7 @@ import { useAudioRecorder, AudioModule, RecordingPresets, useAudioRecorderState 
 import { colors, spacing, typography, borderRadius, shadows } from '../theme/colors';
 import { aiAPI } from '../services/api';
 import Button from '../components/Button';
+import { Ionicons } from '@expo/vector-icons';
 
 const STATES = {
   CONSENT: 'consent',
@@ -151,7 +152,7 @@ const RecordingScreen = ({ navigation }) => {
                 label="Audio will be discarded after transcription. Only text is retained" />
             </View>
             <View style={styles.warning}>
-              <Text style={styles.warningIcon}>{'\u26A0'}</Text>
+              <Ionicons name="warning" size={20} color="#92400E" />
               <Text style={styles.warningText}>
                 Recording without consent may violate local laws.{'\n'}Some states require all-party consent.
               </Text>
@@ -191,7 +192,7 @@ const RecordingScreen = ({ navigation }) => {
         {state === STATES.REVIEWING && transcriptionResult && extractionResult && (
           <View style={styles.reviewContent}>
             <View style={styles.discardedNotice}>
-              <Text>{'\u2705'}</Text>
+              <Ionicons name="checkmark-circle" size={20} color="#166534" />
               <Text style={styles.discardedText}>Audio has been discarded. Only text is retained.</Text>
             </View>
             <View style={styles.section}>
@@ -221,7 +222,7 @@ const RecordingScreen = ({ navigation }) => {
         {/* Error */}
         {state === STATES.ERROR && (
           <View style={styles.centeredContent}>
-            <Text style={{ fontSize: 64, marginBottom: spacing.md }}>{'\u26A0'}</Text>
+            <Ionicons name="warning-outline" size={64} color={colors.error} style={{ marginBottom: spacing.md }} />
             <Text style={styles.errorTitle}>Processing Failed</Text>
             <Text style={styles.errorMessage}>{errorMessage}</Text>
             <Button title="Try Again" onPress={() => setState(STATES.CONSENT)} />
@@ -235,7 +236,7 @@ const RecordingScreen = ({ navigation }) => {
 const ConsentItem = ({ checked, onToggle, label }) => (
   <TouchableOpacity style={styles.consentItem} onPress={onToggle} activeOpacity={0.7}>
     <View style={[styles.checkbox, checked && styles.checkboxChecked]}>
-      {checked && <Text style={styles.checkmark}>{'\u2713'}</Text>}
+      {checked && <Ionicons name="checkmark" size={16} color={colors.white} />}
     </View>
     <Text style={styles.consentLabel}>{label}</Text>
   </TouchableOpacity>
@@ -263,7 +264,6 @@ const styles = StyleSheet.create({
   checkmark: { color: colors.white, fontSize: 14, fontWeight: '700' },
   consentLabel: { ...typography.body, color: colors.textPrimary, flex: 1, lineHeight: 24 },
   warning: { flexDirection: 'row', alignItems: 'flex-start', backgroundColor: '#FEF3C7', padding: spacing.md, borderRadius: borderRadius.md, marginBottom: spacing.xl, gap: spacing.sm },
-  warningIcon: { fontSize: 20 },
   warningText: { ...typography.bodySmall, color: '#92400E', flex: 1, lineHeight: 20 },
 
   centeredContent: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: spacing.xl, paddingVertical: spacing.xxl * 2 },

@@ -27,8 +27,7 @@
         "backgroundColor": "#4F46E5"
       },
       "package": "com.proanimate.connect",
-      "permissions": ["RECORD_AUDIO"],
-      "googleServicesFile": "./google-services.json"
+      "permissions": ["RECORD_AUDIO"]
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -39,19 +38,8 @@
         {
           "microphonePermission": "Allow ProAnimate Connect to access your microphone for voice memos."
         }
-      ],
-      [
-        "expo-notifications",
-        {
-          "icon": "./assets/icon.png",
-          "color": "#4F46E5"
-        }
       ]
     ],
-    "extra": {
-      "eas": {
-        "projectId": "PLACEHOLDER_PROJECT_ID"
-      }
-    }
+    "extra": {}
   }
 }

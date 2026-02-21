@@ -11,6 +11,7 @@ import {
   Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, typography, borderRadius, shadows } from '../theme/colors';
 import { contactsAPI } from '../services/api';
 import ContactCard from '../components/ContactCard';
@@ -97,7 +98,7 @@ const ContactListScreen = ({ navigation }) => {
   const renderHeader = () => (
     <View style={styles.header}>
       <View style={styles.searchContainer}>
-        <Text style={styles.searchIcon}>&#128269;</Text>
+        <Ionicons name="search" size={20} color={colors.textSecondary} style={{ marginRight: spacing.sm }} />
         <TextInput
           style={styles.searchInput}
           placeholder="Search contacts..."
@@ -107,8 +108,8 @@ const ContactListScreen = ({ navigation }) => {
           returnKeyType="search"
         />
         {searchQuery.length > 0 && (
-          <TouchableOpacity onPress={() => setSearchQuery('')}>
-            <Text style={styles.clearIcon}>&#10005;</Text>
+          <TouchableOpacity onPress={() => setSearchQuery('')} style={{ padding: spacing.xs }}>
+            <Ionicons name="close-circle" size={18} color={colors.textTertiary} />
           </TouchableOpacity>
         )}
       </View>
@@ -133,7 +134,7 @@ const ContactListScreen = ({ navigation }) => {
 
   const renderEmpty = () => (
     <View style={styles.empty}>
-      <Text style={styles.emptyIcon}>&#128100;</Text>
+      <Ionicons name="people-outline" size={64} color={colors.textTertiary} style={{ marginBottom: spacing.md }} />
       <Text style={styles.emptyTitle}>No contacts yet</Text>
       <Text style={styles.emptySubtitle}>
         Tap the + button to add your first contact,{'\n'}
@@ -141,6 +142,7 @@ const ContactListScreen = ({ navigation }) => {
       </Text>
     </View>
   );
+
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -177,13 +179,15 @@ const ContactListScreen = ({ navigation }) => {
       />
 
       {/* Floating Action Button */}
-      <TouchableOpacity
-        style={styles.fab}
-        onPress={() => navigation.navigate('CaptureChooser')}
-        activeOpacity={0.8}
-      >
-        <Text style={styles.fabIcon}>+</Text>
-      </TouchableOpacity>
+      <View style={styles.fabContainer}>
+        <TouchableOpacity
+          style={styles.fab}
+          onPress={() => navigation.navigate('CaptureChooser')}
+          activeOpacity={0.8}
+        >
+          <Ionicons name="add" size={32} color={colors.white} />
+        </TouchableOpacity>
+      </View>
     </SafeAreaView>
   );
 };
@@ -197,41 +201,36 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.xl, // More breathable side padding
+    paddingTop: spacing.lg,
+    paddingBottom: spacing.md,
   },
   title: {
     ...typography.h1,
-    color: colors.textPrimary,
+    color: colors.primaryDark, // Use deeper color for title
   },
   header: {
     paddingHorizontal: spacing.md,
-    paddingBottom: spacing.md,
+    paddingBottom: spacing.lg, // slightly more breathing room
   },
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: colors.white,
-    borderRadius: borderRadius.lg,
+    borderRadius: borderRadius.md,
     paddingHorizontal: spacing.md,
-    paddingVertical: Platform.OS === 'ios' ? spacing.sm : 0,
+    paddingVertical: Platform.OS === 'ios' ? spacing.sm : 4,
     ...shadows.sm,
     marginBottom: spacing.md,
-  },
-  searchIcon: {
-    fontSize: 16,
-    marginRight: spacing.sm,
+    marginHorizontal: spacing.sm,
+    borderWidth: 1,
+    borderColor: colors.borderLight,
   },
   searchInput: {
     flex: 1,
     ...typography.body,
     color: colors.textPrimary,
     paddingVertical: spacing.sm,
-  },
-  clearIcon: {
-    fontSize: 14,
-    color: colors.textTertiary,
-    padding: spacing.xs,
   },
   filters: {
     flexDirection: 'row',
@@ -251,10 +250,6 @@ const styles = StyleSheet.create({
   emptyContainer: {
     flex: 1,
   },
-  emptyIcon: {
-    fontSize: 64,
-    marginBottom: spacing.md,
-  },
   emptyTitle: {
     ...typography.h2,
     color: colors.textPrimary,
@@ -269,23 +264,19 @@ const styles = StyleSheet.create({
   footer: {
     paddingVertical: spacing.lg,
   },
-  fab: {
+  fabContainer: {
     position: 'absolute',
     right: spacing.lg,
     bottom: spacing.xl,
+    ...shadows.lg,
+  },
+  fab: {
     width: 60,
     height: 60,
     borderRadius: 30,
     backgroundColor: colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
-    ...shadows.lg,
-  },
-  fabIcon: {
-    fontSize: 32,
-    color: colors.white,
-    lineHeight: 34,
-    fontWeight: '300',
   },
 });
 

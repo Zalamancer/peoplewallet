@@ -58,6 +58,7 @@ app.get('/health', (req, res) => {
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/contacts', require('./routes/contacts'));
 app.use('/api/ai', require('./routes/ai'));
+app.use('/api/linkedin', require('./routes/linkedin'));
 app.use('/api/notifications', require('./routes/notifications'));
 app.use('/api/events', require('./routes/events'));
 

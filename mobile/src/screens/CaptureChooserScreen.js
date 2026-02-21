@@ -3,6 +3,7 @@ import { View, StyleSheet, TouchableOpacity, Text } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors, spacing, typography } from '../theme/colors';
 import CaptureModeSelector from '../components/CaptureModeSelector';
+import { Ionicons } from '@expo/vector-icons';
 
 /**
  * Full-screen capture mode chooser
@@ -13,10 +14,10 @@ const CaptureChooserScreen = ({ navigation }) => {
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.closeButton}>
-          <Text style={styles.closeText}>&#10005;</Text>
+          <Ionicons name="close" size={24} color={colors.textTertiary} />
         </TouchableOpacity>
       </View>
-      <CaptureModeSelector navigation={navigation} onClose={() => {}} />
+      <CaptureModeSelector navigation={navigation} onClose={() => { }} />
     </SafeAreaView>
   );
 };
@@ -34,10 +35,6 @@ const styles = StyleSheet.create({
   },
   closeButton: {
     padding: spacing.sm,
-  },
-  closeText: {
-    fontSize: 20,
-    color: colors.textTertiary,
   },
 });
 

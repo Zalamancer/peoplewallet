@@ -161,6 +161,11 @@ Rules: Normalize school names, infer year from context, attach confidence scores
 | POST | `/:id/notes` | Add note | Built |
 | POST | `/:id/tags` | Add tags | Built |
 
+### LinkedIn (`/api/linkedin`)
+| Method | Path | Description | Status |
+|--------|------|-------------|--------|
+| POST | `/lookup` | Fetch & extract contact data from LinkedIn profile URL | Built |
+
 ### AI Pipeline (`/api/ai`)
 | Method | Path | Description | Status |
 |--------|------|-------------|--------|
@@ -208,7 +213,8 @@ peoplewallet/
 │   │   ├── routes/
 │   │   │   ├── auth.js         # Register, login, profile, LinkedIn OAuth
 │   │   │   ├── contacts.js     # Full CRUD + search/filter/tags/notes
-│   │   │   └── ai.js           # Audio -> Deepgram -> Claude -> contact
+│   │   │   ├── ai.js           # Audio -> Deepgram -> Claude -> contact
+│   │   │   └── linkedin.js     # LinkedIn profile lookup + auto-fill
 │   │   ├── services/
 │   │   │   ├── deepgram.js     # Deepgram Nova-2 transcription
 │   │   │   ├── extraction.js   # Claude Haiku 4.5 entity extraction
@@ -310,7 +316,8 @@ peoplewallet/
 - [ ] **End-to-end DEVICE test: record on phone → transcribe → extract → save contact**
 - [ ] Prompt tuning with real-world audio samples
 - [x] EAS Build configured (eas.json + app.json updated for TestFlight builds)
-- [ ] LinkedIn auto-fill from profile URL (API limited, URL stored for now)
+- [x] LinkedIn auto-fill from profile URL (fetches public profile meta tags, Claude extracts structured data, auto-fills form fields)
+- [x] LinkedIn scraper improved: handles 999 auth-wall responses, vanity name parsing, graceful degradation with user-friendly messages
 
 ### Phase 2.5: Infrastructure & Backend Features (NEW) - COMPLETE
 

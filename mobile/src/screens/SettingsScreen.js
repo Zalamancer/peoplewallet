@@ -12,6 +12,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors, spacing, typography, borderRadius, shadows } from '../theme/colors';
 import { useAuth } from '../context/AuthContext';
 import Button from '../components/Button';
+import { Ionicons } from '@expo/vector-icons';
 
 const SettingsScreen = ({ navigation }) => {
   const { user, logout } = useAuth();
@@ -99,26 +100,16 @@ const SettingsScreen = ({ navigation }) => {
           onPress={() => Alert.alert('Terms of Service', 'Terms of service will be available at launch.')}
         />
 
-        {/* AI Info */}
-        <View style={styles.aiInfo}>
-          <Text style={styles.aiInfoTitle}>AI-Powered Features</Text>
-          <Text style={styles.aiInfoText}>
-            ProAnimate Connect uses Deepgram for speech-to-text{'\n'}
-            and Claude Haiku for entity extraction.{'\n\n'}
-            Audio recordings are discarded after transcription.{'\n'}
-            Only text is retained. Your data is encrypted at rest.
-          </Text>
-        </View>
+
 
         {/* Logout */}
-        <Button
-          title="Sign Out"
-          onPress={handleLogout}
-          variant="outline"
-          fullWidth
+        <TouchableOpacity
           style={styles.logoutButton}
-          textStyle={{ color: colors.error }}
-        />
+          onPress={handleLogout}
+          activeOpacity={0.7}
+        >
+          <Text style={styles.logoutButtonText}>Sign Out</Text>
+        </TouchableOpacity>
 
         <View style={{ height: spacing.xxl * 2 }} />
       </ScrollView>
@@ -140,7 +131,7 @@ const SettingsItem = ({ label, value, onPress, danger }) => (
     <Text style={[settingStyles.itemLabel, danger && settingStyles.itemDanger]}>{label}</Text>
     <View style={settingStyles.itemRight}>
       {value && <Text style={settingStyles.itemValue}>{value}</Text>}
-      {onPress && <Text style={settingStyles.chevron}>&#8250;</Text>}
+      {onPress && <Ionicons name="chevron-forward" size={20} color={colors.textTertiary} />}
     </View>
   </TouchableOpacity>
 );
@@ -181,10 +172,7 @@ const settingStyles = StyleSheet.create({
     ...typography.bodySmall,
     color: colors.textTertiary,
   },
-  chevron: {
-    fontSize: 20,
-    color: colors.textTertiary,
-  },
+
 });
 
 const styles = StyleSheet.create({
@@ -249,26 +237,20 @@ const styles = StyleSheet.create({
     color: colors.primary,
     fontWeight: '700',
   },
-  aiInfo: {
-    backgroundColor: colors.primaryBg,
-    margin: spacing.md,
-    padding: spacing.md,
-    borderRadius: borderRadius.lg,
-  },
-  aiInfoTitle: {
-    ...typography.label,
-    color: colors.primary,
-    marginBottom: spacing.sm,
-  },
-  aiInfoText: {
-    ...typography.bodySmall,
-    color: colors.textSecondary,
-    lineHeight: 20,
-  },
+
   logoutButton: {
-    marginHorizontal: spacing.md,
-    marginTop: spacing.lg,
-    borderColor: colors.error,
+    backgroundColor: colors.white,
+    marginTop: spacing.xl,
+    paddingVertical: spacing.md,
+    borderTopWidth: 0.5,
+    borderBottomWidth: 0.5,
+    borderColor: colors.borderLight,
+    alignItems: 'center',
+  },
+  logoutButtonText: {
+    ...typography.body,
+    fontWeight: '600',
+    color: colors.error,
   },
 });
 
