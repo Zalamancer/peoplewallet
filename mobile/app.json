@@ -35,7 +35,7 @@
     },
     "plugins": [
       [
-        "expo-av",
+        "expo-audio",
         {
           "microphonePermission": "Allow ProAnimate Connect to access your microphone for voice memos."
         }

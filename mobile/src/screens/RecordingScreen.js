@@ -10,7 +10,7 @@ import {
   ScrollView,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Audio } from 'expo-av';
+import { useAudioRecorder, AudioModule, RecordingPresets, useAudioRecorderState } from 'expo-audio';
 import { colors, spacing, typography, borderRadius, shadows } from '../theme/colors';
 import { aiAPI } from '../services/api';
 import Button from '../components/Button';
@@ -25,23 +25,16 @@ const STATES = {
 
 const RecordingScreen = ({ navigation }) => {
   const [state, setState] = useState(STATES.CONSENT);
-  const [recordingDuration, setRecordingDuration] = useState(0);
   const [transcriptionResult, setTranscriptionResult] = useState(null);
   const [extractionResult, setExtractionResult] = useState(null);
   const [errorMessage, setErrorMessage] = useState('');
   const [consentChecks, setConsentChecks] = useState({ informed: false, visible: false, discarded: false });
-  const recordingRef = useRef(null);
-  const timerRef = useRef(null);
+
+  const audioRecorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
+  const recorderState = useAudioRecorderState(audioRecorder);
 
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const blinkAnim = useRef(new Animated.Value(1)).current;
-
-  useEffect(() => {
-    return () => {
-      if (recordingRef.current) recordingRef.current.stopAndUnloadAsync().catch(() => {});
-      if (timerRef.current) clearInterval(timerRef.current);
-    };
-  }, []);
 
   useEffect(() => {
     if (state === STATES.RECORDING) {
@@ -68,21 +61,16 @@ const RecordingScreen = ({ navigation }) => {
 
   const startRecording = async () => {
     try {
-      const { status } = await Audio.requestPermissionsAsync();
-      if (status !== 'granted') {
+      const status = await AudioModule.requestRecordingPermissionsAsync();
+      if (!status.granted) {
         Alert.alert('Permission Required', 'Please grant microphone access.');
         return;
       }
-      await Audio.setAudioModeAsync({ allowsRecordingIOS: true, playsInSilentModeIOS: true });
 
-      const recording = new Audio.Recording();
-      await recording.prepareToRecordAsync(Audio.RecordingOptionsPresets.HIGH_QUALITY);
-      await recording.startAsync();
-      recordingRef.current = recording;
+      await audioRecorder.prepareToRecordAsync();
+      audioRecorder.record();
 
       setState(STATES.RECORDING);
-      setRecordingDuration(0);
-      timerRef.current = setInterval(() => setRecordingDuration((p) => p + 1), 1000);
     } catch (error) {
       console.error('Recording error:', error);
       Alert.alert('Error', 'Failed to start recording');
@@ -92,13 +80,14 @@ const RecordingScreen = ({ navigation }) => {
 
   const stopRecording = async () => {
     try {
-      if (timerRef.current) clearInterval(timerRef.current);
-      if (!recordingRef.current) return;
+      await audioRecorder.stop();
+      const uri = audioRecorder.uri;
 
-      await recordingRef.current.stopAndUnloadAsync();
-      await Audio.setAudioModeAsync({ allowsRecordingIOS: false });
-      const uri = recordingRef.current.getURI();
-      recordingRef.current = null;
+      if (!uri) {
+        setState(STATES.ERROR);
+        setErrorMessage('No audio recorded');
+        return;
+      }
 
       setState(STATES.PROCESSING);
 
@@ -125,7 +114,10 @@ const RecordingScreen = ({ navigation }) => {
     });
   };
 
-  const formatDuration = (s) => `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, '0')}`;
+  const formatDuration = (ms) => {
+    const totalSeconds = Math.floor((ms || 0) / 1000);
+    return `${Math.floor(totalSeconds / 60)}:${(totalSeconds % 60).toString().padStart(2, '0')}`;
+  };
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -175,7 +167,7 @@ const RecordingScreen = ({ navigation }) => {
               <Animated.View style={[styles.indicatorDot, { opacity: blinkAnim }]} />
               <Text style={styles.indicatorText}>RECORDING IN PROGRESS</Text>
             </View>
-            <Text style={styles.duration}>{formatDuration(recordingDuration)}</Text>
+            <Text style={styles.duration}>{formatDuration(recorderState.durationMillis)}</Text>
             <Text style={styles.recordHint}>Place your phone where both parties{'\n'}can see the recording indicator</Text>
             <Animated.View style={[styles.stopOuter, { transform: [{ scale: pulseAnim }] }]}>
               <TouchableOpacity style={styles.stopButton} onPress={stopRecording}>

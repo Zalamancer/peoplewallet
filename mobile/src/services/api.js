@@ -1,17 +1,20 @@
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
+import Constants from 'expo-constants';
 
-// When testing on a physical device, use your computer's local IP.
-// localhost only works on iOS simulator; Android emulator uses 10.0.2.2.
-const DEV_MACHINE_IP = '192.168.4.26';
-
+// Auto-detect the dev server IP from Expo's hostUri (works on both emulator & physical device)
 const getDevBaseUrl = () => {
-  if (Platform.OS === 'android') {
-    return `http://${DEV_MACHINE_IP}:3000/api`;
+  const debuggerHost = Constants.expoConfig?.hostUri || Constants.manifest?.debuggerHost;
+  if (debuggerHost) {
+    const host = debuggerHost.split(':')[0]; // Extract IP, strip Expo's port
+    return `http://${host}:3000/api`;
   }
-  // iOS simulator can use localhost, physical device needs the IP
-  return `http://${DEV_MACHINE_IP}:3000/api`;
+  // Fallback: Android emulator uses 10.0.2.2, iOS simulator uses localhost
+  if (Platform.OS === 'android') {
+    return 'http://10.0.2.2:3000/api';
+  }
+  return 'http://localhost:3000/api';
 };
 
 const API_BASE_URL = __DEV__
