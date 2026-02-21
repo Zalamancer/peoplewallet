@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { colors, borderRadius, typography, spacing, shadows } from '../theme/colors';
+import { Ionicons } from '@expo/vector-icons';
 import Tag from './Tag';
 
 const ContactCard = ({ contact, onPress }) => {
@@ -36,7 +37,7 @@ const ContactCard = ({ contact, onPress }) => {
             <Text style={styles.name} numberOfLines={1}>
               {contact.full_name}
             </Text>
-            {contact.is_favorite && <Text style={styles.star}>&#9733;</Text>}
+            {contact.is_favorite && <Ionicons name="star" size={16} color={colors.warning} style={{ marginLeft: 6 }} />}
             {contact.source && contact.source !== 'manual' && (
               <View style={styles.sourceBadge}>
                 <Text style={styles.sourceText}>
@@ -99,35 +100,41 @@ function formatDate(dateStr) {
 const styles = StyleSheet.create({
   card: {
     backgroundColor: colors.white,
-    borderRadius: borderRadius.lg,
-    padding: spacing.md,
+    borderRadius: borderRadius.lg, // Use the new pill-like rounded corner
+    padding: spacing.lg, // increased padding for an airy feel
     marginHorizontal: spacing.md,
-    marginBottom: spacing.sm,
-    ...shadows.sm,
+    marginBottom: spacing.md,
+    ...shadows.md, // slightly larger shadow for floating effect
+    borderWidth: 1,
+    borderColor: colors.borderLight, // subtle border 
   },
   row: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'center', // Center align
   },
   avatar: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: 56, // Slightly larger avatar
+    height: 56,
+    borderRadius: 28,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: spacing.md,
+    ...shadows.sm, // Give avatar a small pop
   },
   initials: {
     color: colors.white,
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: '700',
+    letterSpacing: 1, // Add tracking
   },
   info: {
     flex: 1,
+    justifyContent: 'center',
   },
   nameRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    marginBottom: 4, // Spacing between name and subtitle
   },
   name: {
     ...typography.h3,
@@ -135,43 +142,45 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   star: {
-    fontSize: 16,
+    fontSize: 18, // slightly larger star
     color: '#F59E0B',
-    marginLeft: 4,
+    marginLeft: 6,
   },
   sourceBadge: {
     backgroundColor: colors.primaryBg,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: borderRadius.sm,
-    marginLeft: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: borderRadius.full, // pill shaped
+    marginLeft: 8,
   },
   sourceText: {
     ...typography.caption,
     color: colors.primary,
-    fontWeight: '600',
+    fontWeight: '700',
   },
   subtitle: {
     ...typography.bodySmall,
     color: colors.textSecondary,
-    marginTop: 2,
+    marginBottom: 2,
   },
   event: {
     ...typography.caption,
-    color: colors.textTertiary,
+    color: colors.primaryLight, // use theme color
     marginTop: 2,
+    fontWeight: '500',
   },
   tags: {
     flexDirection: 'row',
-    marginTop: spacing.xs,
+    marginTop: spacing.sm, // better separation
     alignItems: 'center',
     flexWrap: 'wrap',
-    gap: 4,
+    gap: 6,
   },
   moreTags: {
     ...typography.caption,
     color: colors.textTertiary,
     marginLeft: 4,
+    fontWeight: '600',
   },
 });
 

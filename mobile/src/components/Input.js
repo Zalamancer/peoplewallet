@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { View, TextInput, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { colors, borderRadius, typography, spacing } from '../theme/colors';
+import { View, TextInput, Text, StyleSheet, TouchableOpacity, Platform } from 'react-native';
+import { colors, borderRadius, typography, spacing, shadows } from '../theme/colors';
 
 const Input = ({
   label,
@@ -118,13 +118,14 @@ const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.white,
-    borderWidth: 1.5,
-    borderColor: colors.border,
+    backgroundColor: '#F2F2F7', // Apple standard light gray for text fields
     borderRadius: borderRadius.md,
     paddingHorizontal: spacing.md,
+    borderWidth: 1,
+    borderColor: 'transparent',
   },
   containerFocused: {
+    backgroundColor: colors.white,
     borderColor: colors.primary,
   },
   containerError: {
@@ -146,7 +147,7 @@ const styles = StyleSheet.create({
     flex: 1,
     ...typography.body,
     color: colors.textPrimary,
-    paddingVertical: 12,
+    paddingVertical: Platform.OS === 'ios' ? 14 : 10, // Better touch target
   },
   multiline: {
     minHeight: 100,

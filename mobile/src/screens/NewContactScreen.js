@@ -220,19 +220,19 @@ const NewContactScreen = ({ navigation, route }) => {
         appearance:
           heightRange || hairColor || glasses
             ? {
-                height_range: heightRange || undefined,
-                hair_color: hairColor || undefined,
-                glasses,
-              }
+              height_range: heightRange || undefined,
+              hair_color: hairColor || undefined,
+              glasses,
+            }
             : undefined,
         context:
           howMet || eventName || metDate || location
             ? {
-                how_met: howMet.trim() || undefined,
-                event_name: eventName.trim() || undefined,
-                met_date: metDate.trim() || undefined,
-                location: location.trim() || undefined,
-              }
+              how_met: howMet.trim() || undefined,
+              event_name: eventName.trim() || undefined,
+              met_date: metDate.trim() || undefined,
+              location: location.trim() || undefined,
+            }
             : undefined,
         notes: notes.trim()
           ? [{ content: notes.trim(), source: source === 'manual' ? 'manual' : 'ai_generated' }]
@@ -260,12 +260,12 @@ const NewContactScreen = ({ navigation, route }) => {
   };
 
   const sections = [
-    { key: 'identity', label: 'Identity', icon: '&#128100;' },
-    { key: 'professional', label: 'Professional', icon: '&#127891;' },
-    { key: 'social', label: 'Social', icon: '&#128279;' },
-    { key: 'appearance', label: 'Appearance', icon: '&#128065;' },
-    { key: 'context', label: 'Context', icon: '&#128205;' },
-    { key: 'notes', label: 'Notes & Tags', icon: '&#128221;' },
+    { key: 'identity', label: 'Identity' },
+    { key: 'professional', label: 'Professional' },
+    { key: 'social', label: 'Social' },
+    { key: 'appearance', label: 'Appearance' },
+    { key: 'context', label: 'Context' },
+    { key: 'notes', label: 'Notes & Tags' },
   ];
 
   return (
@@ -274,7 +274,7 @@ const NewContactScreen = ({ navigation, route }) => {
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
           <Text style={styles.backText}>Cancel</Text>
         </TouchableOpacity>
-        <Text style={styles.title}>New Contact</Text>
+        <Text style={styles.title} numberOfLines={1} adjustsFontSizeToFit>New Contact</Text>
         <Button
           title="Save"
           onPress={handleSave}
@@ -603,28 +603,32 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
     borderBottomWidth: 1,
-    borderBottomColor: colors.border,
+    borderBottomColor: colors.borderLight, // softer separator
     backgroundColor: colors.white,
   },
   backButton: {
-    padding: spacing.xs,
+    padding: spacing.sm, // better tap target
   },
   backText: {
     ...typography.body,
-    color: colors.primary,
+    fontWeight: '600',
+    color: colors.textSecondary, // De-emphasize cancel slightly
   },
   title: {
     ...typography.h3,
     color: colors.textPrimary,
+    flex: 1,
+    textAlign: 'center',
+    marginHorizontal: spacing.sm,
   },
   sectionTabs: {
     backgroundColor: colors.white,
     borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-    maxHeight: 48,
+    borderBottomColor: colors.borderLight, // softer line
+    maxHeight: 56, // slightly taller
   },
   sectionTabsContent: {
     paddingHorizontal: spacing.md,
@@ -679,12 +683,13 @@ const styles = StyleSheet.create({
 
   // LinkedIn auto-fill
   linkedinCard: {
-    backgroundColor: '#EEF2FF',
+    backgroundColor: colors.primaryBg,
     borderWidth: 1,
-    borderColor: '#C7D2FE',
-    borderRadius: borderRadius.lg,
-    padding: spacing.md,
+    borderColor: colors.primaryLight, // soft border
+    borderRadius: borderRadius.xl, // more rounded
+    padding: spacing.lg, // more padding
     marginBottom: spacing.lg,
+    ...shadows.sm, // soft shadow float
   },
   linkedinCardTitle: {
     ...typography.h3,

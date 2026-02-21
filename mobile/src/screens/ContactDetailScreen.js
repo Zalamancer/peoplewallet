@@ -14,6 +14,7 @@ import { colors, spacing, typography, borderRadius, shadows } from '../theme/col
 import { contactsAPI } from '../services/api';
 import Tag from '../components/Tag';
 import Button from '../components/Button';
+import { Ionicons } from '@expo/vector-icons';
 
 const ContactDetailScreen = ({ route, navigation }) => {
   const { contactId } = route.params;
@@ -91,19 +92,21 @@ const ContactDetailScreen = ({ route, navigation }) => {
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-          <Text style={styles.backIcon}>&#8592;</Text>
+          <Ionicons name="arrow-back" size={24} color={colors.primary} />
         </TouchableOpacity>
         <View style={styles.headerActions}>
           <TouchableOpacity onPress={handleToggleFavorite} style={styles.headerButton}>
-            <Text style={[styles.starIcon, contact.is_favorite && styles.starActive]}>
-              {contact.is_favorite ? '\u2605' : '\u2606'}
-            </Text>
+            <Ionicons
+              name={contact.is_favorite ? "star" : "star-outline"}
+              size={24}
+              color={contact.is_favorite ? colors.warning : colors.textTertiary}
+            />
           </TouchableOpacity>
           <TouchableOpacity
             onPress={() => navigation.navigate('EditContact', { contact })}
             style={styles.headerButton}
           >
-            <Text style={styles.editIcon}>&#9998;</Text>
+            <Ionicons name="pencil" size={20} color={colors.primary} />
           </TouchableOpacity>
         </View>
       </View>
@@ -299,11 +302,13 @@ function formatDate(dateStr) {
 const sectionStyles = StyleSheet.create({
   card: {
     backgroundColor: colors.white,
-    borderRadius: borderRadius.lg,
-    padding: spacing.md,
+    borderRadius: borderRadius.lg, // pill shape
+    padding: spacing.lg, // airy
     marginHorizontal: spacing.md,
     marginBottom: spacing.md,
-    ...shadows.sm,
+    ...shadows.md,
+    borderWidth: 1,
+    borderColor: colors.borderLight, // subtle border
   },
   title: {
     ...typography.label,
@@ -322,7 +327,7 @@ const sectionStyles = StyleSheet.create({
     width: 80,
   },
   value: {
-    ...typography.bodySmall,
+    ...typography.body, // Use slightly larger body text for info
     color: colors.textPrimary,
     flex: 1,
     fontWeight: '500',
@@ -350,27 +355,12 @@ const styles = StyleSheet.create({
   backButton: {
     padding: spacing.sm,
   },
-  backIcon: {
-    fontSize: 24,
-    color: colors.primary,
-  },
   headerActions: {
     flexDirection: 'row',
     gap: spacing.sm,
   },
   headerButton: {
     padding: spacing.sm,
-  },
-  starIcon: {
-    fontSize: 24,
-    color: colors.textTertiary,
-  },
-  starActive: {
-    color: '#F59E0B',
-  },
-  editIcon: {
-    fontSize: 20,
-    color: colors.primary,
   },
   scroll: {
     flex: 1,
@@ -381,17 +371,19 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
   },
   avatar: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
+    width: 96, // larger avatar
+    height: 96,
+    borderRadius: 48,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: spacing.md,
+    ...shadows.md, // Add pop
   },
   avatarText: {
     color: colors.white,
-    fontSize: 30,
+    fontSize: 36,
     fontWeight: '700',
+    letterSpacing: 2,
   },
   name: {
     ...typography.h1,
@@ -427,15 +419,17 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   noteCard: {
-    backgroundColor: colors.borderLight,
-    borderRadius: borderRadius.md,
+    backgroundColor: colors.primaryBg, // use a softer, theme-aligned background
+    borderRadius: borderRadius.lg,
     padding: spacing.md,
     marginBottom: spacing.sm,
+    borderWidth: 1,
+    borderColor: colors.primaryLight,
   },
   noteContent: {
-    ...typography.bodySmall,
+    ...typography.body, // more readable note content
     color: colors.textPrimary,
-    lineHeight: 20,
+    lineHeight: 22,
   },
   noteMeta: {
     flexDirection: 'row',

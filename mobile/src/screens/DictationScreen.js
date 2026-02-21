@@ -14,6 +14,7 @@ import { Audio } from 'expo-av';
 import { colors, spacing, typography, borderRadius, shadows } from '../theme/colors';
 import { aiAPI } from '../services/api';
 import Button from '../components/Button';
+import { Ionicons } from '@expo/vector-icons';
 
 const STATES = {
   IDLE: 'idle',
@@ -38,7 +39,7 @@ const DictationScreen = ({ navigation }) => {
   useEffect(() => {
     return () => {
       if (recordingRef.current) {
-        recordingRef.current.stopAndUnloadAsync().catch(() => {});
+        recordingRef.current.stopAndUnloadAsync().catch(() => { });
       }
       if (timerRef.current) clearInterval(timerRef.current);
     };
@@ -187,7 +188,7 @@ const DictationScreen = ({ navigation }) => {
               "I just met Sarah Chen, she's a junior{'\n'}CS major at UTD, works at a startup{'\n'}called DataFlow, interested in ML..."
             </Text>
             <TouchableOpacity style={styles.recordButton} onPress={startRecording}>
-              <Text style={styles.micIcon}>{'\u{1F3A4}'}</Text>
+              <Ionicons name="mic" size={48} color={colors.white} />
             </TouchableOpacity>
             <Text style={styles.hint}>Tap to start recording (15-30 seconds)</Text>
           </View>
@@ -265,7 +266,7 @@ const DictationScreen = ({ navigation }) => {
 
         {state === STATES.ERROR && (
           <View style={styles.centeredContent}>
-            <Text style={{ fontSize: 64, marginBottom: spacing.md }}>{'\u26A0'}</Text>
+            <Ionicons name="warning-outline" size={64} color={colors.error} style={{ marginBottom: spacing.md }} />
             <Text style={styles.errorTitle}>Something went wrong</Text>
             <Text style={styles.errorMessage}>{errorMessage}</Text>
             <Button title="Try Again" onPress={handleRetry} />
@@ -312,16 +313,15 @@ const styles = StyleSheet.create({
   content: { flex: 1 },
   contentContainer: { flexGrow: 1, paddingBottom: spacing.xxl },
   centeredContent: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: spacing.xl, paddingVertical: spacing.xxl * 2 },
-  instruction: { ...typography.h3, color: colors.textPrimary, textAlign: 'center', marginBottom: spacing.lg, lineHeight: 26 },
-  example: { ...typography.bodySmall, color: colors.textTertiary, textAlign: 'center', fontStyle: 'italic', marginBottom: spacing.xxl, lineHeight: 22 },
-  recordButton: { width: 100, height: 100, borderRadius: 50, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center', ...shadows.lg },
-  micIcon: { fontSize: 40 },
-  hint: { ...typography.caption, color: colors.textTertiary, marginTop: spacing.lg },
-  recordingLabel: { ...typography.h2, color: colors.recording, marginBottom: spacing.sm },
+  instruction: { ...typography.h2, color: colors.textPrimary, textAlign: 'center', marginBottom: spacing.lg, lineHeight: 32 },
+  example: { ...typography.body, color: colors.textSecondary, textAlign: 'center', fontStyle: 'italic', marginBottom: spacing.xxl, lineHeight: 24, paddingHorizontal: spacing.md },
+  recordButton: { width: 120, height: 120, borderRadius: 60, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center', ...shadows.lg },
+  hint: { ...typography.caption, color: colors.textTertiary, marginTop: spacing.xl, letterSpacing: 0.5, textTransform: 'uppercase' },
+  recordingLabel: { ...typography.h2, color: colors.recording, marginBottom: spacing.sm, fontWeight: '700' },
   duration: { fontSize: 48, fontWeight: '200', color: colors.textPrimary, marginBottom: spacing.xl, fontVariant: ['tabular-nums'] },
-  recordButtonActive: { width: 100, height: 100, borderRadius: 50, backgroundColor: colors.recordingBg, alignItems: 'center', justifyContent: 'center' },
-  stopButton: { width: 80, height: 80, borderRadius: 40, backgroundColor: colors.recording, alignItems: 'center', justifyContent: 'center' },
-  stopIcon: { width: 24, height: 24, borderRadius: 4, backgroundColor: colors.white },
+  recordButtonActive: { width: 140, height: 140, borderRadius: 70, backgroundColor: colors.recordingBg, alignItems: 'center', justifyContent: 'center' },
+  stopButton: { width: 90, height: 90, borderRadius: 45, backgroundColor: colors.recording, alignItems: 'center', justifyContent: 'center', ...shadows.md },
+  stopIcon: { width: 28, height: 28, borderRadius: 8, backgroundColor: colors.white },
   processingText: { ...typography.h3, color: colors.textPrimary, marginTop: spacing.lg, marginBottom: spacing.xl },
   processingSteps: { gap: spacing.md },
   stepRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
@@ -330,10 +330,10 @@ const styles = StyleSheet.create({
   stepLabelActive: { color: colors.primary, fontWeight: '600' },
   reviewContent: { padding: spacing.md },
   section: { marginBottom: spacing.lg },
-  sectionTitle: { ...typography.label, color: colors.textTertiary, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: spacing.sm },
-  card: { backgroundColor: colors.white, borderRadius: borderRadius.lg, padding: spacing.md, ...shadows.sm },
-  transcriptText: { ...typography.body, color: colors.textPrimary, lineHeight: 24 },
-  confidenceLabel: { ...typography.caption, color: colors.textTertiary, marginTop: spacing.sm },
+  sectionTitle: { ...typography.label, color: colors.textSecondary, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: spacing.md, paddingHorizontal: spacing.xs },
+  card: { backgroundColor: colors.white, borderRadius: borderRadius.xl, padding: spacing.lg, ...shadows.md, borderWidth: 1, borderColor: colors.borderLight },
+  transcriptText: { ...typography.body, color: colors.textPrimary, lineHeight: 24, fontStyle: 'italic' },
+  confidenceLabel: { ...typography.caption, color: colors.textTertiary, marginTop: spacing.md, fontWeight: '600' },
   fieldRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: spacing.xs },
   fieldDot: { width: 8, height: 8, borderRadius: 4, marginRight: spacing.sm },
   fieldLabel: { ...typography.bodySmall, color: colors.textTertiary, width: 70 },

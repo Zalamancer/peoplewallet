@@ -4,6 +4,7 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Text, View, StyleSheet } from 'react-native';
 import { colors } from '../theme/colors';
 import { useAuth } from '../context/AuthContext';
+import { Ionicons } from '@expo/vector-icons';
 
 // Screens
 import LoginScreen from '../screens/LoginScreen';
@@ -19,28 +20,23 @@ import CaptureChooserScreen from '../screens/CaptureChooserScreen';
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
 
-/**
- * Tab icon component (using text since we want to avoid native vector icon setup issues)
- */
-const TabIcon = ({ label, focused }) => (
-  <View style={tabStyles.iconContainer}>
-    <Text style={[tabStyles.icon, focused && tabStyles.iconFocused]}>
-      {label === 'Contacts' ? '\u{1F4CB}' : label === 'Add' ? '\u{2795}' : '\u{2699}'}
-    </Text>
-  </View>
-);
+const TabIcon = ({ label, focused }) => {
+  let iconName;
+  if (label === 'Contacts') iconName = focused ? 'people' : 'people-outline';
+  else if (label === 'Add') iconName = focused ? 'add-circle' : 'add-circle-outline';
+  else iconName = focused ? 'settings' : 'settings-outline';
+
+  return (
+    <View style={tabStyles.iconContainer}>
+      <Ionicons name={iconName} size={24} color={focused ? colors.primary : colors.textTertiary} />
+    </View>
+  );
+};
 
 const tabStyles = StyleSheet.create({
   iconContainer: {
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  icon: {
-    fontSize: 22,
-    opacity: 0.5,
-  },
-  iconFocused: {
-    opacity: 1,
   },
 });
 
@@ -78,20 +74,7 @@ const MainTabs = ({ navigation }) => {
           tabBarIcon: ({ focused }) => <TabIcon label="Contacts" focused={focused} />,
         }}
       />
-      <Tab.Screen
-        name="AddTab"
-        component={AddPlaceholder}
-        options={{
-          tabBarLabel: 'Add',
-          tabBarIcon: ({ focused }) => <TabIcon label="Add" focused={focused} />,
-        }}
-        listeners={({ navigation: nav }) => ({
-          tabPress: (e) => {
-            e.preventDefault();
-            nav.navigate('CaptureChooser');
-          },
-        })}
-      />
+
       <Tab.Screen
         name="SettingsTab"
         component={SettingsScreen}
