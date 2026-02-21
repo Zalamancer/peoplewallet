@@ -317,6 +317,7 @@ peoplewallet/
 - [ ] Prompt tuning with real-world audio samples
 - [x] EAS Build configured (eas.json + app.json updated for TestFlight builds)
 - [x] LinkedIn auto-fill from profile URL (fetches public profile meta tags, Claude extracts structured data, auto-fills form fields)
+- [x] LinkedIn scraper improved: handles 999 auth-wall responses, vanity name parsing, graceful degradation with user-friendly messages
 
 ### Phase 2.5: Infrastructure & Backend Features (NEW) - COMPLETE
 

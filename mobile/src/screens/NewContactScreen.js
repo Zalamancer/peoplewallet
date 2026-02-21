@@ -102,25 +102,61 @@ const NewContactScreen = ({ navigation, route }) => {
 
       if (result.contactData) {
         const data = result.contactData;
+        let fieldsFilledCount = 0;
 
         // Fill identity fields (only if currently empty)
-        if (data.full_name && !fullName) setFullName(data.full_name);
+        if (data.full_name && !fullName) {
+          setFullName(data.full_name);
+          fieldsFilledCount++;
+        }
 
         // Fill professional fields (only if currently empty)
         if (data.professional) {
-          if (data.professional.school && !school) setSchool(data.professional.school);
-          if (data.professional.company && !company) setCompany(data.professional.company);
-          if (data.professional.job_title && !jobTitle) setJobTitle(data.professional.job_title);
+          if (data.professional.school && !school) {
+            setSchool(data.professional.school);
+            fieldsFilledCount++;
+          }
+          if (data.professional.company && !company) {
+            setCompany(data.professional.company);
+            fieldsFilledCount++;
+          }
+          if (data.professional.job_title && !jobTitle) {
+            setJobTitle(data.professional.job_title);
+            fieldsFilledCount++;
+          }
         }
 
-        // Add headline as a note if we have one
-        if (data.headline && !notes) {
-          setNotes(`LinkedIn: ${data.headline}`);
+        // Fill location if available
+        if (data.location && !location) {
+          setLocation(data.location);
+          fieldsFilledCount++;
         }
 
-        setLinkedinStatus(result.partial ? 'partial' : 'success');
+        // Add headline + summary as a note if we have one
+        if ((data.headline || data.summary) && !notes) {
+          const noteParts = [];
+          if (data.headline) noteParts.push(`LinkedIn: ${data.headline}`);
+          if (data.summary) noteParts.push(data.summary);
+          setNotes(noteParts.join('\n'));
+          fieldsFilledCount++;
+        }
+
+        // Determine status based on what was actually filled
+        if (fieldsFilledCount >= 3) {
+          setLinkedinStatus('success');
+        } else if (fieldsFilledCount > 0) {
+          setLinkedinStatus('partial');
+        } else {
+          // contactData existed but nothing new was filled (user already had values)
+          setLinkedinStatus('success');
+        }
       } else {
         setLinkedinStatus('partial');
+      }
+
+      // Show the note from the server if we got one
+      if (result.note && result.partial && !result.contactData) {
+        Alert.alert('LinkedIn Lookup', result.note);
       }
     } catch (error) {
       const msg =
@@ -386,10 +422,12 @@ const NewContactScreen = ({ navigation, route }) => {
                   />
                 </View>
                 {linkedinStatus === 'success' && (
-                  <Text style={styles.linkedinSuccess}>Fields auto-filled from LinkedIn profile.</Text>
+                  <Text style={styles.linkedinSuccess}>Profile data auto-filled! Review the other tabs to verify.</Text>
                 )}
                 {linkedinStatus === 'partial' && (
-                  <Text style={styles.linkedinPartial}>Some data extracted. You may need to fill in remaining fields manually.</Text>
+                  <Text style={styles.linkedinPartial}>
+                    Some fields filled. LinkedIn may restrict data for this profile — check Identity &amp; Professional tabs.
+                  </Text>
                 )}
                 {linkedinStatus === 'error' && (
                   <Text style={styles.linkedinError}>Lookup failed. You can still enter the URL manually below.</Text>

@@ -140,9 +140,100 @@ RULES:
 7. Return ONLY the JSON object, no markdown fences, no explanation.`;
 
 /**
+ * Attempt to fetch a LinkedIn profile page.
+ * Tries multiple strategies because LinkedIn aggressively blocks server-side
+ * fetches (returning 999 status with an auth wall for most profiles).
+ *
+ * Strategy order:
+ *   1. Direct fetch with browser-like headers
+ *   2. If 999/authwall, try with `validateStatus` to still capture any HTML
+ *   3. Extract whatever meta tags are available (even auth-wall pages
+ *      sometimes include og:title/og:description for SEO crawlers)
+ */
+const fetchLinkedInHtml = async (normalizedUrl, vanityName) => {
+  const headers = {
+    'User-Agent':
+      'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+    Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+    'Accept-Language': 'en-US,en;q=0.9',
+    'Accept-Encoding': 'gzip, deflate, br',
+    'Cache-Control': 'no-cache',
+    Pragma: 'no-cache',
+    'sec-ch-ua': '"Chromium";v="122", "Not(A:Brand";v="24", "Google Chrome";v="122"',
+    'sec-ch-ua-mobile': '?0',
+    'sec-ch-ua-platform': '"macOS"',
+    'sec-fetch-dest': 'document',
+    'sec-fetch-mode': 'navigate',
+    'sec-fetch-site': 'none',
+    'sec-fetch-user': '?1',
+    'upgrade-insecure-requests': '1',
+  };
+
+  // Strategy 1: Direct fetch (works for high-profile/influencer pages)
+  try {
+    const response = await axios.get(normalizedUrl, {
+      headers,
+      timeout: 12000,
+      maxRedirects: 5,
+      validateStatus: () => true, // Accept ALL status codes so we can inspect 999 responses
+    });
+
+    const isAuthWall = response.status === 999 || response.data?.includes('authwall');
+    const html = response.data || '';
+
+    if (!isAuthWall && response.status >= 200 && response.status < 400) {
+      logger.info(`LinkedIn direct fetch succeeded for ${vanityName} (status ${response.status})`);
+      return { html, blocked: false };
+    }
+
+    // Even auth-wall pages sometimes contain og: tags in the HTML
+    if (html.length > 500) {
+      const tags = parseMetaTags(html);
+      if (tags.title || tags['og:title'] || tags['og:description']) {
+        logger.info(`LinkedIn auth-walled but found meta tags for ${vanityName}`);
+        return { html, blocked: true, partialMeta: true };
+      }
+    }
+
+    logger.warn(`LinkedIn auth-walled with no useful meta for ${vanityName} (status ${response.status})`);
+    return { html: '', blocked: true, partialMeta: false };
+  } catch (fetchError) {
+    logger.warn(`LinkedIn fetch error for ${vanityName}: ${fetchError.message}`);
+    return { html: '', blocked: true, partialMeta: false };
+  }
+};
+
+/**
+ * Parse the vanity name itself to guess a likely name.
+ * LinkedIn vanity URLs are often first-last or firstlast format.
+ * Examples: "john-doe" -> "John Doe", "sarahchen99" -> "Sarahchen99" (uncertain)
+ */
+const guessNameFromVanity = (vanityName) => {
+  // Strip trailing digits (e.g., "john-doe-123" -> "john-doe")
+  const cleaned = vanityName.replace(/-?\d+$/, '');
+
+  if (cleaned.includes('-')) {
+    // "john-doe" -> "John Doe"
+    return cleaned
+      .split('-')
+      .filter(Boolean)
+      .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
+      .join(' ');
+  }
+
+  // Can't reliably split "johndoe" without dictionary, return null
+  return null;
+};
+
+/**
  * Fetch and extract contact data from a LinkedIn profile URL.
  * Fetches the public profile page, parses meta/OG tags, and uses
  * Claude to structure the available data into contact fields.
+ *
+ * For profiles behind LinkedIn's auth wall (status 999), we:
+ *   - Try to extract og: meta tags (sometimes present even on blocked pages)
+ *   - Fall back to parsing the vanity name for a name guess
+ *   - Always save the LinkedIn URL for manual reference
  */
 const fetchProfileByUrl = async (linkedinUrl) => {
   const startTime = Date.now();
@@ -154,37 +245,16 @@ const fetchProfileByUrl = async (linkedinUrl) => {
   }
 
   const vanityName = urlMatch[1];
-
-  // Normalize the URL
   const normalizedUrl = `https://www.linkedin.com/in/${vanityName}`;
-  logger.info(`LinkedIn lookup: fetching public profile for ${vanityName}`);
+  logger.info(`LinkedIn lookup: starting profile fetch for ${vanityName}`);
 
-  let metaTags;
-  try {
-    const response = await axios.get(normalizedUrl, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-        'Accept-Language': 'en-US,en;q=0.9',
-      },
-      timeout: 10000,
-      maxRedirects: 3,
-    });
+  // Step 1: Fetch the page
+  const { html, blocked, partialMeta } = await fetchLinkedInHtml(normalizedUrl, vanityName);
 
-    metaTags = parseMetaTags(response.data);
-  } catch (fetchError) {
-    logger.warn(`LinkedIn page fetch failed for ${vanityName}: ${fetchError.message}`);
-    // Return minimal data if fetch fails (e.g., LinkedIn blocks the request)
-    return {
-      linkedinUrl: normalizedUrl,
-      vanityName,
-      contactData: null,
-      partial: true,
-      note: 'Could not fetch LinkedIn profile page. The URL has been saved — you can fill in details manually.',
-    };
-  }
+  // Step 2: Parse whatever meta tags we have
+  const metaTags = html ? parseMetaTags(html) : {};
 
-  // Build a text summary from the available meta tags for Claude to parse
+  // Build a text summary from available meta tags
   const availableText = [
     metaTags.title && `Title: ${metaTags.title}`,
     metaTags['og:title'] && `OG Title: ${metaTags['og:title']}`,
@@ -195,92 +265,130 @@ const fetchProfileByUrl = async (linkedinUrl) => {
     .filter(Boolean)
     .join('\n');
 
-  if (!availableText) {
-    logger.warn(`No useful meta tags found for ${vanityName}`);
-    return {
-      linkedinUrl: normalizedUrl,
-      vanityName,
-      contactData: null,
-      partial: true,
-      note: 'LinkedIn profile page did not contain extractable data. The URL has been saved.',
-    };
+  // Step 3: If we have any text, use Claude to extract structured data
+  if (availableText) {
+    try {
+      const client = getAnthropicClient();
+
+      const response = await client.messages.create({
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 512,
+        messages: [
+          {
+            role: 'user',
+            content: `Extract contact information from this LinkedIn profile metadata:\n\n${availableText}`,
+          },
+        ],
+        system: LINKEDIN_EXTRACTION_PROMPT,
+        temperature: 0.1,
+      });
+
+      const content = response.content[0]?.text;
+      if (!content) throw new Error('No content from Claude');
+
+      let jsonStr = content.trim();
+      if (jsonStr.startsWith('```')) {
+        jsonStr = jsonStr.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '');
+      }
+
+      const extracted = JSON.parse(jsonStr);
+      const processingTime = Date.now() - startTime;
+
+      // Count how many non-null fields were extracted
+      const extractedFields = [
+        extracted.full_name,
+        extracted.company,
+        extracted.job_title,
+        extracted.school,
+        extracted.location,
+      ].filter(Boolean).length;
+
+      // If we got the name + at least 1 other field, consider it a success
+      const isPartial = !extracted.full_name || extractedFields < 2;
+
+      logger.info(
+        `LinkedIn profile extracted in ${processingTime}ms for ${vanityName} (${extractedFields} fields, ${isPartial ? 'partial' : 'full'}, blocked: ${blocked})`,
+      );
+
+      return {
+        linkedinUrl: normalizedUrl,
+        vanityName,
+        avatarUrl: metaTags['og:image'] || null,
+        contactData: {
+          full_name: extracted.full_name,
+          professional: {
+            company: extracted.company,
+            job_title: extracted.job_title,
+            school: extracted.school,
+          },
+          location: extracted.location,
+          headline: extracted.headline,
+          summary: extracted.summary,
+        },
+        partial: isPartial,
+        processingTimeMs: processingTime,
+        ...(blocked && { note: 'Profile data extracted from limited public metadata.' }),
+      };
+    } catch (extractError) {
+      logger.error(`LinkedIn Claude extraction failed for ${vanityName}:`, extractError.message);
+      // Fall through to fallback below
+    }
   }
 
-  // Use Claude to extract structured data from the meta text
-  try {
-    const client = getAnthropicClient();
+  // Step 4: Fallback — try to get name from title tag or vanity name
+  const processingTime = Date.now() - startTime;
 
-    const response = await client.messages.create({
-      model: 'claude-haiku-4-5-20251001',
-      max_tokens: 512,
-      messages: [
-        {
-          role: 'user',
-          content: `Extract contact information from this LinkedIn profile metadata:\n\n${availableText}`,
-        },
-      ],
-      system: LINKEDIN_EXTRACTION_PROMPT,
-      temperature: 0.1,
-    });
+  // Try title-based extraction: "First Last - Title at Company | LinkedIn"
+  const titleParts = metaTags.title?.replace(/\s*\|\s*LinkedIn\s*$/, '').split(' - ');
+  const titleName = titleParts?.[0]?.trim() || null;
+  const titleHeadline = titleParts?.[1]?.trim() || null;
 
-    const content = response.content[0]?.text;
-    if (!content) throw new Error('No content from Claude');
+  // Try vanity name guess
+  const guessedName = guessNameFromVanity(vanityName);
 
-    let jsonStr = content.trim();
-    if (jsonStr.startsWith('```')) {
-      jsonStr = jsonStr.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '');
+  const fallbackName = titleName || guessedName;
+
+  // Parse headline into company/title if possible
+  let fallbackCompany = null;
+  let fallbackJobTitle = null;
+  if (titleHeadline) {
+    const atMatch = titleHeadline.match(/^(.+?)\s+at\s+(.+)$/i);
+    if (atMatch) {
+      fallbackJobTitle = atMatch[1].trim();
+      fallbackCompany = atMatch[2].trim();
     }
+  }
 
-    const extracted = JSON.parse(jsonStr);
-    const processingTime = Date.now() - startTime;
-
-    logger.info(`LinkedIn profile extracted in ${processingTime}ms for ${vanityName}`, {
-      hasName: !!extracted.full_name,
-      hasCompany: !!extracted.company,
-      hasSchool: !!extracted.school,
-    });
-
+  if (fallbackName) {
     return {
       linkedinUrl: normalizedUrl,
       vanityName,
       avatarUrl: metaTags['og:image'] || null,
       contactData: {
-        full_name: extracted.full_name,
+        full_name: fallbackName,
         professional: {
-          company: extracted.company,
-          job_title: extracted.job_title,
-          school: extracted.school,
+          company: fallbackCompany,
+          job_title: fallbackJobTitle,
         },
-        location: extracted.location,
-        headline: extracted.headline,
-        summary: extracted.summary,
+        headline: titleHeadline,
       },
-      partial: false,
-      processingTimeMs: processingTime,
-    };
-  } catch (extractError) {
-    logger.error(`LinkedIn Claude extraction failed for ${vanityName}:`, extractError.message);
-
-    // Fall back to basic regex parsing of the title tag
-    const titleParts = metaTags.title?.replace(/\s*\|\s*LinkedIn\s*$/, '').split(' - ');
-    const fallbackName = titleParts?.[0]?.trim() || null;
-    const fallbackHeadline = titleParts?.[1]?.trim() || null;
-
-    return {
-      linkedinUrl: normalizedUrl,
-      vanityName,
-      avatarUrl: metaTags['og:image'] || null,
-      contactData: fallbackName
-        ? {
-            full_name: fallbackName,
-            professional: {},
-            headline: fallbackHeadline,
-          }
-        : null,
       partial: true,
-      note: 'AI extraction unavailable — basic profile data extracted from page title.',
+      processingTimeMs: processingTime,
+      note: blocked
+        ? 'LinkedIn restricted access to this profile. Basic info extracted from available data.'
+        : 'Limited profile data available. You can fill in remaining fields manually.',
     };
   }
+
+  // Step 5: Absolute fallback — no data at all, just save the URL
+  return {
+    linkedinUrl: normalizedUrl,
+    vanityName,
+    contactData: null,
+    partial: true,
+    processingTimeMs: processingTime,
+    note: 'LinkedIn restricted access to this profile. The URL has been saved — tap the LinkedIn field to open it in your browser and fill in details manually.',
+  };
 };
 
 module.exports = { getAuthUrl, exchangeCodeForToken, getProfile, fetchProfileByUrl };
