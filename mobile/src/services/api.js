@@ -86,4 +86,24 @@ export const aiAPI = {
     }),
 };
 
+// Notifications API
+export const notificationsAPI = {
+  registerToken: (push_token, platform) =>
+    api.post('/notifications/register', { push_token, platform }),
+  unregisterToken: (push_token) =>
+    api.delete('/notifications/unregister', { data: { push_token } }),
+  getPreferences: () => api.get('/notifications/preferences'),
+  updatePreferences: (data) => api.put('/notifications/preferences', data),
+};
+
+// Events API
+export const eventsAPI = {
+  list: (params) => api.get('/events', { params }),
+  get: (id) => api.get(`/events/${id}`),
+  create: (data) => api.post('/events', data),
+  update: (id, data) => api.put(`/events/${id}`, data),
+  delete: (id) => api.delete(`/events/${id}`),
+  getPrep: (id) => api.get(`/events/${id}/prep`),
+};
+
 export default api;

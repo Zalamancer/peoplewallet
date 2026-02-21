@@ -104,7 +104,7 @@ const SettingsScreen = ({ navigation }) => {
           <Text style={styles.aiInfoTitle}>AI-Powered Features</Text>
           <Text style={styles.aiInfoText}>
             ProAnimate Connect uses Deepgram for speech-to-text{'\n'}
-            and GPT-4o-mini for entity extraction.{'\n\n'}
+            and Claude Haiku for entity extraction.{'\n\n'}
             Audio recordings are discarded after transcription.{'\n'}
             Only text is retained. Your data is encrypted at rest.
           </Text>

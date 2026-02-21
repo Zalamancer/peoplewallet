@@ -4,6 +4,7 @@ const { authenticate, contactRateLimit } = require('../middleware/auth');
 const { validateCreateContact, validateUpdateContact, validateUUID, contentFilter } = require('../middleware/validation');
 const { auditLog } = require('../middleware/audit');
 const { encrypt, decrypt } = require('../utils/encryption');
+const { touchContact, getStaleContacts } = require('../services/decay-reminders');
 const logger = require('../utils/logger');
 
 const router = express.Router();
@@ -128,6 +129,21 @@ router.get('/', async (req, res) => {
   } catch (error) {
     logger.error('List contacts error:', error);
     res.status(500).json({ error: 'Failed to fetch contacts' });
+  }
+});
+
+/**
+ * GET /api/contacts/stale
+ * Get contacts that haven't been interacted with in N days
+ */
+router.get('/stale', async (req, res) => {
+  try {
+    const days = parseInt(req.query.days, 10) || 45;
+    const stale = await getStaleContacts(req.user.id, days);
+    res.json({ contacts: stale, threshold_days: days });
+  } catch (error) {
+    logger.error('Get stale contacts error:', error);
+    res.status(500).json({ error: 'Failed to get stale contacts' });
   }
 });
 
@@ -563,6 +579,29 @@ router.post('/:id/tags', authenticate, async (req, res) => {
   } catch (error) {
     logger.error('Add tags error:', error);
     res.status(500).json({ error: 'Failed to add tags' });
+  }
+});
+
+/**
+ * POST /api/contacts/:id/touch
+ * Update last_interaction_at for a contact (marks as recently engaged)
+ */
+router.post('/:id/touch', validateUUID, async (req, res) => {
+  try {
+    const contact = await query(
+      'SELECT id FROM contacts WHERE id = $1 AND user_id = $2',
+      [req.params.id, req.user.id]
+    );
+
+    if (contact.rows.length === 0) {
+      return res.status(404).json({ error: 'Contact not found' });
+    }
+
+    await touchContact(req.params.id);
+    res.json({ message: 'Contact interaction updated' });
+  } catch (error) {
+    logger.error('Touch contact error:', error);
+    res.status(500).json({ error: 'Failed to update contact interaction' });
   }
 });
 

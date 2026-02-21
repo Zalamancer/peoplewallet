@@ -34,10 +34,10 @@
 | Auth | Firebase Auth + LinkedIn OAuth 2.0 | Fast implementation, core feature | DONE (JWT fallback) |
 | Speech-to-Text | Deepgram API (Nova-2) | $0.0059/min, superior conversational accuracy | Integrated |
 | Entity Extraction | Claude Haiku 4.5 (Anthropic) | Structured output, low cost | TESTED ✓ |
-| Push Notifications | Firebase Cloud Messaging | Free tier, reliable iOS delivery | Not started |
-| Analytics | Mixpanel (free tier) | Event-based tracking, cohort analysis | Not started |
-| CI/CD | GitHub Actions + Fastlane | Automated iOS builds, TestFlight | Not started |
-| Monitoring | Sentry + AWS CloudWatch | Crash reporting, API health | Not started |
+| Push Notifications | Expo Push Notifications | Cross-platform, free tier | INTEGRATED |
+| Analytics | Mixpanel (free tier) | Event-based tracking, cohort analysis | INTEGRATED |
+| CI/CD | EAS Build + GitHub Actions | Automated iOS builds, TestFlight | EAS CONFIGURED |
+| Monitoring | Sentry + AWS CloudWatch | Crash reporting, API health | INTEGRATED |
 
 > **Note:** Original plan specified GPT-4o-mini for extraction. Swapped to Claude Haiku 4.5 (`claude-haiku-4-5-20251001`) per founder preference. Deepgram Nova-2 retained for speech-to-text. Claude 3.5 Haiku reached EOL on Feb 19, 2026.
 
@@ -131,6 +131,10 @@ Rules: Normalize school names, infer year from context, attach confidence scores
 | `contact_tags` | User-defined relationship tags | Migrated |
 | `transcriptions` | Raw transcripts + extracted entities + confidence scores | Migrated |
 | `audit_log` | GDPR/CCPA compliance trail | Migrated |
+| `user_push_tokens` | Expo push notification tokens per device | Migrated |
+| `notification_preferences` | Per-user notification settings | Migrated |
+| `notification_log` | Track sent notifications to avoid duplicates | Migrated |
+| `events` | Upcoming events for pre-event prep nudges | Migrated |
 
 ---
 
@@ -164,6 +168,24 @@ Rules: Normalize school names, infer year from context, attach confidence scores
 | POST | `/extract` | Text -> Claude entity extraction | TESTED ✓ |
 | POST | `/transcribe-only` | Audio -> Deepgram transcription only | Built |
 
+### Notifications (`/api/notifications`)
+| Method | Path | Description | Status |
+|--------|------|-------------|--------|
+| POST | `/register` | Register push token for user | Built |
+| DELETE | `/unregister` | Unregister a push token | Built |
+| GET | `/preferences` | Get notification preferences | Built |
+| PUT | `/preferences` | Update notification preferences | Built |
+
+### Events (`/api/events`)
+| Method | Path | Description | Status |
+|--------|------|-------------|--------|
+| GET | `/` | List events (upcoming_only filter) | Built |
+| POST | `/` | Create event | Built |
+| GET | `/:id` | Get single event | Built |
+| PUT | `/:id` | Update event | Built |
+| DELETE | `/:id` | Delete event | Built |
+| GET | `/:id/prep` | Get relevant contacts for event prep | Built |
+
 ---
 
 ## Project Structure
@@ -190,10 +212,25 @@ peoplewallet/
 │   │   ├── services/
 │   │   │   ├── deepgram.js     # Deepgram Nova-2 transcription
 │   │   │   ├── extraction.js   # Claude Haiku 4.5 entity extraction
-│   │   │   └── linkedin.js     # LinkedIn OAuth 2.0
+│   │   │   ├── linkedin.js     # LinkedIn OAuth 2.0
+│   │   │   ├── notifications.js # Expo Push Notifications
+│   │   │   ├── decay-reminders.js # Contact decay detection & reminders
+│   │   │   ├── event-prep.js   # Pre-event prep nudge logic
+│   │   │   └── analytics.js    # Mixpanel server-side tracking
+│   │   ├── jobs/
+│   │   │   └── scheduler.js    # Background job runner (decay, event prep)
+│   │   ├── config/
+│   │   │   ├── database.js     # PostgreSQL pool config
+│   │   │   ├── firebase.js     # Firebase Admin (optional)
+│   │   │   └── sentry.js       # Sentry error tracking config
 │   │   └── utils/
 │   │       ├── encryption.js   # AES-256-GCM encrypt/decrypt
 │   │       └── logger.js       # Winston logger
+│   ├── tests/                   # Jest unit tests
+│   │   ├── encryption.test.js
+│   │   ├── validation.test.js
+│   │   ├── auth-middleware.test.js
+│   │   └── ai-pipeline.test.js
 │   ├── .env                    # Environment variables
 │   └── package.json
 │
@@ -221,7 +258,10 @@ peoplewallet/
 │   │   ├── context/
 │   │   │   └── AuthContext.js  # Auth state, LinkedIn OAuth, deep links
 │   │   ├── services/
-│   │   │   └── api.js          # Axios client with auth interceptors
+│   │   │   ├── api.js          # Axios client with auth interceptors
+│   │   │   ├── notifications.js # Expo push notification registration
+│   │   │   ├── analytics.js    # Mixpanel client-side tracking
+│   │   │   └── errorTracking.js # Sentry error tracking
 │   │   └── theme/
 │   │       └── colors.js       # Design system tokens
 │   ├── app.json                # Expo config (scheme: proanimate)
@@ -254,7 +294,7 @@ peoplewallet/
 - [x] Content filter (blocks SSN, health info, etc.)
 - [ ] CI/CD (GitHub Actions + Fastlane) - deferred
 
-### Phase 2: AI Capture (Days 16-30) - IN PROGRESS
+### Phase 2: AI Capture (Days 16-30) - COMPLETE
 
 - [x] Deepgram Nova-2 integration (service built)
 - [x] Claude 3.5 Haiku extraction pipeline (service + prompt built)
@@ -269,11 +309,28 @@ peoplewallet/
 - [x] Fixed `transcriptions.contact_id` NOT NULL constraint (was blocking pipeline — contact doesn't exist at transcription time)
 - [ ] **End-to-end DEVICE test: record on phone → transcribe → extract → save contact**
 - [ ] Prompt tuning with real-world audio samples
-- [ ] TestFlight / EAS build for device testing
+- [x] EAS Build configured (eas.json + app.json updated for TestFlight builds)
 - [ ] LinkedIn auto-fill from profile URL (API limited, URL stored for now)
 
-### Phase 3: Beta Launch (Days 31-50) - NOT STARTED
+### Phase 2.5: Infrastructure & Backend Features (NEW) - COMPLETE
 
+- [x] Push notification system (Expo Push API, server + mobile services)
+- [x] Database migration: push tokens, notification preferences, events, notification log tables
+- [x] Contact decay reminders backend (configurable per-user, 45-day default)
+- [x] Stale contacts API endpoint (`GET /api/contacts/stale`)
+- [x] Contact touch/interaction tracking (`POST /api/contacts/:id/touch`)
+- [x] Pre-event prep nudges (event CRUD + relevant contact matching)
+- [x] Events API (full CRUD + prep endpoint for contact suggestions)
+- [x] Background job scheduler (decay reminders every 6h, event prep every 1h)
+- [x] Notification preferences API (decay, event prep, weekly digest toggles)
+- [x] Mixpanel analytics integration (server-side + mobile event tracking)
+- [x] Sentry error tracking integration (server + mobile, PII-safe)
+- [x] Unit test suite (37 tests: encryption, validation, auth middleware, AI pipeline)
+- [x] Jest test configuration with coverage reporting
+
+### Phase 3: Beta Launch (Days 31-50) - IN PROGRESS
+
+- [x] EAS Build configuration for TestFlight distribution
 - [ ] TestFlight / EAS build distribution (10 initial users)
 - [ ] Ambassador recruitment (2 from professional fraternity at UTD)
 - [ ] Ambassador-led outreach (30+ users)
@@ -283,12 +340,13 @@ peoplewallet/
 - [ ] Push to 50+ users, 30+ AI-assisted contacts
 - [ ] LOI pursuit: UTD Career Center, Dallas professional orgs
 
-### Phase 4: Measurement (Days 51-75) - NOT STARTED
+### Phase 4: Measurement (Days 51-75) - PARTIALLY BUILT
 
-- [ ] Contact decay reminders ("Haven't connected in 45 days")
-- [ ] Pre-event prep nudges (surface relevant contacts before career fairs)
+- [x] Contact decay reminders ("Haven't connected in 45 days") - **BACKEND COMPLETE**
+- [x] Pre-event prep nudges (surface relevant contacts before career fairs) - **BACKEND COMPLETE**
 - [ ] "Did You Know?" nudges (weekly LinkedIn update notifications)
-- [ ] Mixpanel dashboard (DAU, WAU, Day-1/7/14 retention)
+- [x] Mixpanel analytics integration (server + mobile) - **INTEGRATED, NEEDS TOKEN**
+- [ ] Mixpanel dashboard configuration (DAU, WAU, Day-1/7/14 retention)
 - [ ] User interviews (5 power users, 5 churned)
 - [ ] Semester recap feature
 - [ ] Co-founder finalization
@@ -433,18 +491,23 @@ Configured in `mobile/src/services/api.js` -> uses `192.168.4.26:3000` for physi
 2. **LinkedIn OAuth redirect URI** - Must register `http://192.168.4.26:3000/api/auth/linkedin/callback` in LinkedIn Developer Console
 
 ### Short-term
-3. EAS Build for standalone app (custom URL scheme `proanimate://` only works in standalone builds)
-4. Push notifications (Firebase Cloud Messaging)
-5. Contact decay reminders
-6. Pre-event prep feature
+3. ~~EAS Build for standalone app~~ — ✅ eas.json configured, app.json updated with EAS project config
+4. ~~Push notifications~~ — ✅ Expo Push Notification service built (server + mobile), notification preferences API
+5. ~~Contact decay reminders~~ — ✅ Backend service complete with configurable thresholds and scheduled job
+6. ~~Pre-event prep feature~~ — ✅ Events CRUD + relevant contact matching + scheduled nudges
+7. Run `eas build --platform ios --profile preview` to generate first TestFlight build
+8. Configure Mixpanel token in production environment
+9. Configure Sentry DSN in production environment
+10. Run database migration `002_notifications_and_events.js`
+11. End-to-end device test with physical iPhone
 
 ### Technical Debt
-7. TypeScript migration (mobile currently JS)
-8. Unit tests for server routes and services
-9. E2E tests for mobile flows
-10. Production deployment (AWS ECS Fargate)
-11. Sentry error tracking integration
-12. Mixpanel analytics integration
+12. TypeScript migration (mobile currently JS)
+13. ~~Unit tests for server routes and services~~ — ✅ 37 tests passing (encryption, validation, auth, AI pipeline)
+14. E2E tests for mobile flows
+15. Production deployment (AWS ECS Fargate)
+16. ~~Sentry error tracking integration~~ — ✅ Server + mobile (needs DSN configuration)
+17. ~~Mixpanel analytics integration~~ — ✅ Server + mobile (needs token configuration)
 
 ---
 
@@ -473,5 +536,5 @@ Configured in `mobile/src/services/api.js` -> uses `192.168.4.26:3000` for physi
 
 ---
 
-*Last updated: 2026-02-20*
+*Last updated: 2026-02-21*
 *Source document: /Users/ihsanduru/Documents/peoplewallet.docx*
