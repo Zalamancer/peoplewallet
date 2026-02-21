@@ -1,10 +1,12 @@
-require('dotenv').config();
+require('dotenv').config({ override: true });
 const { pool } = require('../config/database');
 const logger = require('../utils/logger');
 const migration001 = require('./001_initial_schema');
+const migration002 = require('./002_notifications_and_events');
 
 const migrations = [
   { name: '001_initial_schema', ...migration001 },
+  { name: '002_notifications_and_events', ...migration002 },
 ];
 
 const createMigrationsTable = async () => {
