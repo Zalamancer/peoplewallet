@@ -71,6 +71,11 @@ export const contactsAPI = {
   addTags: (id, data) => api.post(`/contacts/${id}/tags`, data),
 };
 
+// LinkedIn API
+export const linkedinAPI = {
+  lookup: (url) => api.post('/linkedin/lookup', { url }, { timeout: 15000 }),
+};
+
 // AI API
 export const aiAPI = {
   transcribe: (formData) =>
