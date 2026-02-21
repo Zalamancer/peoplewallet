@@ -1,0 +1,58 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Environment
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Build
+build/
+dist/
+
+# iOS
+mobile/ios/Pods/
+mobile/ios/build/
+*.xcworkspace
+!default.xcworkspace
+
+# Android
+mobile/android/app/build/
+mobile/android/.gradle/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Testing
+coverage/
+
+# Expo
+mobile/.expo/
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+
+# Backup (bare RN, pre-Expo)
+mobile-rn-backup/
+
+# Misc
+*.tgz
+*.log

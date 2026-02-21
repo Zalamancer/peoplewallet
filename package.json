@@ -1,0 +1,13 @@
+{
+  "name": "proanimate-connect",
+  "version": "1.0.0",
+  "description": "AI-Powered Relationship Intelligence Platform",
+  "private": true,
+  "scripts": {
+    "server:dev": "cd server && npm run dev",
+    "server:start": "cd server && npm start",
+    "server:migrate": "cd server && npm run migrate",
+    "mobile:start": "cd mobile && npx expo start",
+    "mobile:ios": "cd mobile && npx expo start --ios"
+  }
+}
