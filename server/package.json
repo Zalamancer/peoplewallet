@@ -9,7 +9,18 @@
     "migrate": "node src/migrations/run.js",
     "migrate:down": "node src/migrations/run.js down",
     "seed": "node src/migrations/seed.js",
-    "test": "jest --coverage"
+    "test": "jest --coverage",
+    "test:watch": "jest --watch",
+    "scheduler": "node src/jobs/scheduler.js"
+  },
+  "jest": {
+    "testEnvironment": "node",
+    "testMatch": ["**/tests/**/*.test.js"],
+    "collectCoverageFrom": [
+      "src/**/*.js",
+      "!src/index.js",
+      "!src/migrations/**"
+    ]
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.78.0",

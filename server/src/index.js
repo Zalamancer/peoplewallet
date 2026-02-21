@@ -7,12 +7,16 @@ const morgan = require('morgan');
 const compression = require('compression');
 const rateLimit = require('express-rate-limit');
 const { initializeFirebase } = require('./config/firebase');
+const { initSentry, captureException } = require('./config/sentry');
 const logger = require('./utils/logger');
 
 // Initialize Firebase
 initializeFirebase();
 
 const app = express();
+
+// Initialize Sentry (must be before routes)
+initSentry(app);
 
 // Security middleware
 app.use(helmet());
@@ -55,6 +59,8 @@ app.use('/api/auth', require('./routes/auth'));
 app.use('/api/contacts', require('./routes/contacts'));
 app.use('/api/ai', require('./routes/ai'));
 app.use('/api/linkedin', require('./routes/linkedin'));
+app.use('/api/notifications', require('./routes/notifications'));
+app.use('/api/events', require('./routes/events'));
 
 // 404 handler
 app.use((req, res) => {
@@ -88,6 +94,12 @@ const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   logger.info(`ProAnimate Connect API running on port ${PORT}`);
   logger.info(`Environment: ${process.env.NODE_ENV || 'development'}`);
+
+  // Start background job scheduler for notifications
+  if (process.env.ENABLE_SCHEDULER !== 'false') {
+    const { startScheduler } = require('./jobs/scheduler');
+    startScheduler();
+  }
 });
 
 module.exports = app;
