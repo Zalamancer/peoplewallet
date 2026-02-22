@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -11,7 +11,8 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAudioRecorder, AudioModule, RecordingPresets, useAudioRecorderState } from 'expo-audio';
-import { colors, spacing, typography, borderRadius, shadows } from '../theme/colors';
+import { spacing, typography, borderRadius, shadows } from '../theme/colors';
+import { useTheme } from '../context/ThemeContext';
 import { aiAPI } from '../services/api';
 import Button from '../components/Button';
 import { Ionicons } from '@expo/vector-icons';
@@ -25,6 +26,9 @@ const STATES = {
 };
 
 const DictationScreen = ({ navigation }) => {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+
   const [state, setState] = useState(STATES.IDLE);
   const [transcriptionResult, setTranscriptionResult] = useState(null);
   const [extractionResult, setExtractionResult] = useState(null);
@@ -72,7 +76,7 @@ const DictationScreen = ({ navigation }) => {
 
       setState(STATES.RECORDING);
     } catch (error) {
-      console.error('Start recording error:', error);
+      console.warn('Start recording error:', error?.message);
       Alert.alert('Error', 'Failed to start recording. Please check microphone permissions.');
       setState(STATES.ERROR);
       setErrorMessage('Microphone access denied or unavailable');
@@ -93,7 +97,7 @@ const DictationScreen = ({ navigation }) => {
       setState(STATES.PROCESSING);
       await processAudio(uri);
     } catch (error) {
-      console.error('Stop recording error:', error);
+      console.warn('Stop recording error:', error?.message);
       setState(STATES.ERROR);
       setErrorMessage('Failed to stop recording');
     }
@@ -115,7 +119,7 @@ const DictationScreen = ({ navigation }) => {
       setExtractionResult(extraction);
       setState(STATES.REVIEWING);
     } catch (error) {
-      console.error('Processing error:', error);
+      console.warn('Processing error:', error?.message);
       const msg =
         error.response?.data?.message ||
         error.response?.data?.error ||
@@ -148,6 +152,32 @@ const DictationScreen = ({ navigation }) => {
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
+  const ProcessingStep = ({ label, active }) => (
+    <View style={styles.stepRow}>
+      {active ? <ActivityIndicator size="small" color={colors.primary} /> : <View style={styles.stepDot} />}
+      <Text style={[styles.stepLabel, active && styles.stepLabelActive]}>{label}</Text>
+    </View>
+  );
+
+  const ConfidenceField = ({ label, value, status }) => {
+    if (!value) return null;
+    const dotColor = status === 'auto' ? colors.confidenceHigh : status === 'suggest' ? colors.confidenceMedium : colors.confidenceLow;
+    return (
+      <View style={styles.fieldRow}>
+        <View style={[styles.fieldDot, { backgroundColor: dotColor }]} />
+        <Text style={styles.fieldLabel}>{label}</Text>
+        <Text style={styles.fieldValue} numberOfLines={1}>{value}</Text>
+      </View>
+    );
+  };
+
+  const LegendItem = ({ color, text }) => (
+    <View style={styles.legendItem}>
+      <View style={[styles.legendDot, { backgroundColor: color }]} />
+      <Text style={styles.legendText}>{text}</Text>
+    </View>
+  );
+
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
@@ -168,7 +198,7 @@ const DictationScreen = ({ navigation }) => {
               "I just met Sarah Chen, she's a junior{'\n'}CS major at UTD, works at a startup{'\n'}called DataFlow, interested in ML..."
             </Text>
             <TouchableOpacity style={styles.recordButton} onPress={startRecording}>
-              <Ionicons name="mic" size={48} color={colors.white} />
+              <Ionicons name="mic" size={48} color={colors.textInverse} />
             </TouchableOpacity>
             <Text style={styles.hint}>Tap to start recording (15-30 seconds)</Text>
           </View>
@@ -257,35 +287,9 @@ const DictationScreen = ({ navigation }) => {
   );
 };
 
-const ProcessingStep = ({ label, active }) => (
-  <View style={styles.stepRow}>
-    {active ? <ActivityIndicator size="small" color={colors.primary} /> : <View style={styles.stepDot} />}
-    <Text style={[styles.stepLabel, active && styles.stepLabelActive]}>{label}</Text>
-  </View>
-);
-
-const ConfidenceField = ({ label, value, status }) => {
-  if (!value) return null;
-  const dotColor = status === 'auto' ? colors.confidenceHigh : status === 'suggest' ? colors.confidenceMedium : colors.confidenceLow;
-  return (
-    <View style={styles.fieldRow}>
-      <View style={[styles.fieldDot, { backgroundColor: dotColor }]} />
-      <Text style={styles.fieldLabel}>{label}</Text>
-      <Text style={styles.fieldValue} numberOfLines={1}>{value}</Text>
-    </View>
-  );
-};
-
-const LegendItem = ({ color, text }) => (
-  <View style={styles.legendItem}>
-    <View style={[styles.legendDot, { backgroundColor: color }]} />
-    <Text style={styles.legendText}>{text}</Text>
-  </View>
-);
-
-const styles = StyleSheet.create({
+const createStyles = (colors) => StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: spacing.md, paddingVertical: spacing.sm, borderBottomWidth: 1, borderBottomColor: colors.border, backgroundColor: colors.white },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: spacing.md, paddingVertical: spacing.sm, borderBottomWidth: 1, borderBottomColor: colors.border, backgroundColor: colors.surface },
   backButton: { padding: spacing.xs },
   backText: { ...typography.body, color: colors.primary },
   title: { ...typography.h3, color: colors.textPrimary },
@@ -301,7 +305,7 @@ const styles = StyleSheet.create({
   duration: { fontSize: 48, fontWeight: '200', color: colors.textPrimary, marginBottom: spacing.xl, fontVariant: ['tabular-nums'] },
   recordButtonActive: { width: 140, height: 140, borderRadius: 70, backgroundColor: colors.recordingBg, alignItems: 'center', justifyContent: 'center' },
   stopButton: { width: 90, height: 90, borderRadius: 45, backgroundColor: colors.recording, alignItems: 'center', justifyContent: 'center', ...shadows.md },
-  stopIcon: { width: 28, height: 28, borderRadius: 8, backgroundColor: colors.white },
+  stopIcon: { width: 28, height: 28, borderRadius: 8, backgroundColor: colors.surface },
   processingText: { ...typography.h3, color: colors.textPrimary, marginTop: spacing.lg, marginBottom: spacing.xl },
   processingSteps: { gap: spacing.md },
   stepRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
@@ -311,7 +315,7 @@ const styles = StyleSheet.create({
   reviewContent: { padding: spacing.md },
   section: { marginBottom: spacing.lg },
   sectionTitle: { ...typography.label, color: colors.textSecondary, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: spacing.md, paddingHorizontal: spacing.xs },
-  card: { backgroundColor: colors.white, borderRadius: borderRadius.xl, padding: spacing.lg, ...shadows.md, borderWidth: 1, borderColor: colors.borderLight },
+  card: { backgroundColor: colors.surface, borderRadius: borderRadius.xl, padding: spacing.lg, ...shadows.md, borderWidth: 1, borderColor: colors.borderLight },
   transcriptText: { ...typography.body, color: colors.textPrimary, lineHeight: 24, fontStyle: 'italic' },
   confidenceLabel: { ...typography.caption, color: colors.textTertiary, marginTop: spacing.md, fontWeight: '600' },
   fieldRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: spacing.xs },

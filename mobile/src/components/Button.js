@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { TouchableOpacity, Text, StyleSheet, ActivityIndicator, View } from 'react-native';
-import { colors, borderRadius, typography, shadows } from '../theme/colors';
+import { borderRadius, typography, shadows } from '../theme/colors';
+import { useTheme } from '../context/ThemeContext';
 
 const Button = ({
   title,
@@ -14,6 +15,9 @@ const Button = ({
   textStyle,
   fullWidth = false,
 }) => {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+
   const buttonStyle = [
     styles.base,
     styles[variant],
@@ -53,7 +57,7 @@ const Button = ({
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors) => StyleSheet.create({
   base: {
     borderRadius: borderRadius.md,
     alignItems: 'center',
@@ -110,7 +114,7 @@ const styles = StyleSheet.create({
     ...typography.button,
   },
   label_primary: {
-    color: colors.white,
+    color: colors.textInverse,
   },
   label_secondary: {
     color: colors.primary,
@@ -122,7 +126,7 @@ const styles = StyleSheet.create({
     color: colors.primary,
   },
   label_danger: {
-    color: colors.white,
+    color: colors.textInverse,
   },
   label_sm: {
     fontSize: 14,

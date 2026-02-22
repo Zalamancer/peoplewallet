@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { View, TextInput, Text, StyleSheet, TouchableOpacity, Platform } from 'react-native';
-import { colors, borderRadius, typography, spacing, shadows } from '../theme/colors';
+import { borderRadius, typography, spacing, shadows } from '../theme/colors';
+import { useTheme } from '../context/ThemeContext';
 
 const Input = ({
   label,
@@ -21,6 +22,8 @@ const Input = ({
   onRightIconPress,
   confidenceStatus, // 'auto' | 'suggest' | null
 }) => {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const [isFocused, setIsFocused] = useState(false);
 
   const containerStyle = [
@@ -81,7 +84,7 @@ const Input = ({
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors) => StyleSheet.create({
   wrapper: {
     marginBottom: spacing.md,
   },
@@ -99,7 +102,7 @@ const styles = StyleSheet.create({
     ...typography.caption,
     color: colors.confidenceMedium,
     fontWeight: '600',
-    backgroundColor: '#FEF3C7',
+    backgroundColor: 'rgba(255, 159, 10, 0.15)', // Darker version for dark theme
     paddingHorizontal: 8,
     paddingVertical: 2,
     borderRadius: borderRadius.sm,
@@ -109,7 +112,7 @@ const styles = StyleSheet.create({
     ...typography.caption,
     color: colors.confidenceHigh,
     fontWeight: '600',
-    backgroundColor: '#DCFCE7',
+    backgroundColor: 'rgba(48, 209, 88, 0.15)',
     paddingHorizontal: 8,
     paddingVertical: 2,
     borderRadius: borderRadius.sm,
@@ -118,14 +121,14 @@ const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F2F2F7', // Apple standard light gray for text fields
+    backgroundColor: colors.borderLight, // Use borderLight or secondary so it fits
     borderRadius: borderRadius.md,
     paddingHorizontal: spacing.md,
     borderWidth: 1,
     borderColor: 'transparent',
   },
   containerFocused: {
-    backgroundColor: colors.white,
+    backgroundColor: colors.surface,
     borderColor: colors.primary,
   },
   containerError: {
@@ -133,11 +136,11 @@ const styles = StyleSheet.create({
   },
   containerConfidenceHigh: {
     borderColor: colors.confidenceHigh,
-    backgroundColor: '#F0FDF4',
+    backgroundColor: 'rgba(48, 209, 88, 0.05)',
   },
   containerConfidenceMedium: {
     borderColor: colors.confidenceMedium,
-    backgroundColor: '#FFFBEB',
+    backgroundColor: 'rgba(255, 159, 10, 0.05)',
   },
   containerDisabled: {
     backgroundColor: colors.borderLight,

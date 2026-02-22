@@ -1,5 +1,5 @@
 /**
- * Initial database schema for ProAnimate Connect
+ * Initial database schema for PeopleWallet
  * Tables: users, contacts, contact_professional, contact_social,
  *         contact_appearance, contact_context, contact_notes,
  *         contact_tags, transcriptions, audit_log

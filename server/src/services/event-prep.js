@@ -106,12 +106,14 @@ const processEventPrepReminders = async () => {
  * Matches by event name, location, and tags
  */
 const getRelevantContacts = async (userId, eventName, eventLocation) => {
+  if (!eventName && !eventLocation) return [];
   // Find contacts who were met at a similarly named event or location
   const result = await query(
     `SELECT DISTINCT
       c.id, c.full_name, c.nickname, c.avatar_url,
       cp.school, cp.company, cp.job_title,
-      cc.event_name as met_at_event, cc.location as met_at_location
+      cc.event_name as met_at_event, cc.location as met_at_location,
+      c.updated_at
     FROM contacts c
     LEFT JOIN contact_professional cp ON cp.contact_id = c.id
     LEFT JOIN contact_context cc ON cc.contact_id = c.id

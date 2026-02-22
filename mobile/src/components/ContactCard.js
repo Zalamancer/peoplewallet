@@ -1,10 +1,14 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { colors, borderRadius, typography, spacing, shadows } from '../theme/colors';
+import { borderRadius, typography, spacing, shadows } from '../theme/colors';
+import { useTheme } from '../context/ThemeContext';
 import { Ionicons } from '@expo/vector-icons';
 import Tag from './Tag';
 
-const ContactCard = ({ contact, onPress }) => {
+const ContactCard = ({ contact, onPress, mutualCount = 0 }) => {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+
   const initials = (contact.full_name || '?')
     .split(' ')
     .map((n) => n[0])
@@ -67,6 +71,14 @@ const ContactCard = ({ contact, onPress }) => {
               )}
             </View>
           )}
+          {(mutualCount > 0 || contact.mutual_count > 0) && (
+            <View style={styles.mutualRow}>
+              <Ionicons name="people" size={12} color={colors.accent} />
+              <Text style={styles.mutualText}>
+                {mutualCount || contact.mutual_count} mutual
+              </Text>
+            </View>
+          )}
         </View>
       </View>
     </TouchableOpacity>
@@ -97,9 +109,9 @@ function formatDate(dateStr) {
   }
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors) => StyleSheet.create({
   card: {
-    backgroundColor: colors.white,
+    backgroundColor: colors.surface,
     borderRadius: borderRadius.lg, // Use the new pill-like rounded corner
     padding: spacing.lg, // increased padding for an airy feel
     marginHorizontal: spacing.md,
@@ -122,7 +134,7 @@ const styles = StyleSheet.create({
     ...shadows.sm, // Give avatar a small pop
   },
   initials: {
-    color: colors.white,
+    color: colors.textInverse,
     fontSize: 20,
     fontWeight: '700',
     letterSpacing: 1, // Add tracking
@@ -180,6 +192,17 @@ const styles = StyleSheet.create({
     ...typography.caption,
     color: colors.textTertiary,
     marginLeft: 4,
+    fontWeight: '600',
+  },
+  mutualRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: spacing.xs,
+    gap: 4,
+  },
+  mutualText: {
+    fontSize: 11,
+    color: colors.accent,
     fontWeight: '600',
   },
 });

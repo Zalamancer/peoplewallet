@@ -2,11 +2,21 @@ const { query } = require('../config/database');
 const logger = require('../utils/logger');
 
 /**
- * Notification service for ProAnimate Connect
+ * Notification service for PeopleWallet
  * Uses Expo Push Notifications (works with both FCM and APNs through Expo's push service)
  */
 
 const EXPO_PUSH_URL = 'https://exp.host/--/api/v2/push/send';
+
+/**
+ * Notification type constants
+ */
+const NOTIFICATION_TYPES = {
+  EVENT_REMINDER: 'event_reminder',
+  RSVP_CONFIRMATION: 'rsvp_confirmation',
+  EVENT_UPDATE: 'event_update',
+  CLUB_ANNOUNCEMENT: 'club_announcement',
+};
 
 /**
  * Send push notification via Expo Push API
@@ -128,10 +138,130 @@ const removeInvalidToken = async (pushToken) => {
   logger.info(`Removed invalid push token: ${pushToken.slice(0, 20)}...`);
 };
 
+/**
+ * Send an event reminder notification to a user
+ * @param {string} userId - The user to notify
+ * @param {object} event - Event object with id, name, location
+ */
+const sendEventReminder = async (userId, event) => {
+  const locationPart = event.location ? ` at ${event.location}` : '';
+  const notification = {
+    title: 'Event Reminder',
+    body: `Reminder: ${event.name} starts in 1 hour${locationPart}`,
+    data: {
+      type: NOTIFICATION_TYPES.EVENT_REMINDER,
+      eventId: event.id,
+    },
+  };
+
+  const sent = await sendToUser(userId, notification);
+
+  // Log the notification
+  try {
+    await query(
+      `INSERT INTO notification_log (user_id, type, title, body, metadata)
+       VALUES ($1, $2, $3, $4, $5)`,
+      [
+        userId,
+        NOTIFICATION_TYPES.EVENT_REMINDER,
+        notification.title,
+        notification.body,
+        JSON.stringify({ event_id: event.id, event_name: event.name }),
+      ]
+    );
+  } catch (logError) {
+    logger.error('Failed to log event reminder notification:', logError);
+  }
+
+  return sent;
+};
+
+/**
+ * Send an RSVP confirmation notification to a user
+ * @param {string} userId - The user to notify
+ * @param {object} event - Event object with id, name
+ */
+const sendRsvpConfirmation = async (userId, event) => {
+  const notification = {
+    title: 'RSVP Confirmed',
+    body: `You're going to ${event.name}!`,
+    data: {
+      type: NOTIFICATION_TYPES.RSVP_CONFIRMATION,
+      eventId: event.id,
+    },
+  };
+
+  const sent = await sendToUser(userId, notification);
+
+  try {
+    await query(
+      `INSERT INTO notification_log (user_id, type, title, body, metadata)
+       VALUES ($1, $2, $3, $4, $5)`,
+      [
+        userId,
+        NOTIFICATION_TYPES.RSVP_CONFIRMATION,
+        notification.title,
+        notification.body,
+        JSON.stringify({ event_id: event.id, event_name: event.name }),
+      ]
+    );
+  } catch (logError) {
+    logger.error('Failed to log RSVP confirmation notification:', logError);
+  }
+
+  return sent;
+};
+
+/**
+ * Send an event update notification to all RSVP'd users
+ * @param {string[]} userIds - Array of user IDs to notify
+ * @param {object} event - Event object with id, name
+ * @param {object} changes - Description of what changed (e.g. { location: 'new loc', event_date: '...' })
+ */
+const sendEventUpdate = async (userIds, event, changes) => {
+  const notifications = userIds.map((userId) => ({
+    userId,
+    title: 'Event Updated',
+    body: `Update: ${event.name} has been updated`,
+    data: {
+      type: NOTIFICATION_TYPES.EVENT_UPDATE,
+      eventId: event.id,
+      changes,
+    },
+  }));
+
+  const totalSent = await sendBatch(notifications);
+
+  // Bulk-log notifications
+  try {
+    for (const userId of userIds) {
+      await query(
+        `INSERT INTO notification_log (user_id, type, title, body, metadata)
+         VALUES ($1, $2, $3, $4, $5)`,
+        [
+          userId,
+          NOTIFICATION_TYPES.EVENT_UPDATE,
+          'Event Updated',
+          `Update: ${event.name} has been updated`,
+          JSON.stringify({ event_id: event.id, event_name: event.name, changes }),
+        ]
+      );
+    }
+  } catch (logError) {
+    logger.error('Failed to log event update notifications:', logError);
+  }
+
+  return totalSent;
+};
+
 module.exports = {
+  NOTIFICATION_TYPES,
   sendPushNotification,
   sendToUser,
   sendBatch,
+  sendEventReminder,
+  sendRsvpConfirmation,
+  sendEventUpdate,
   registerToken,
   unregisterToken,
   removeInvalidToken,

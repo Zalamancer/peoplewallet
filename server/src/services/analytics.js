@@ -1,7 +1,7 @@
 const logger = require('../utils/logger');
 
 /**
- * Analytics service for ProAnimate Connect
+ * Analytics service for PeopleWallet
  * Server-side event tracking via Mixpanel HTTP API
  *
  * Events tracked:

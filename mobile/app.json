@@ -1,24 +1,25 @@
 {
   "expo": {
-    "name": "ProAnimate Connect",
-    "slug": "proanimate-connect",
+    "name": "PeopleWallet",
+    "slug": "peoplewallet",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-    "userInterfaceStyle": "light",
+    "userInterfaceStyle": "automatic",
+    "backgroundColor": "#000000",
     "newArchEnabled": true,
-    "scheme": "proanimate",
+    "scheme": "peoplewallet",
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
-      "backgroundColor": "#4F46E5"
+      "backgroundColor": "#000000"
     },
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.proanimate.connect",
+      "bundleIdentifier": "com.peoplewallet.app",
       "infoPlist": {
-        "NSMicrophoneUsageDescription": "ProAnimate Connect needs access to your microphone to record voice memos for creating contact cards.",
-        "NSContactsUsageDescription": "ProAnimate Connect can import contacts to help you organize your network."
+        "NSMicrophoneUsageDescription": "PeopleWallet needs access to your microphone to record voice memos for creating contact cards.",
+        "NSContactsUsageDescription": "PeopleWallet can import contacts to help you organize your network."
       }
     },
     "android": {
@@ -26,8 +27,10 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#4F46E5"
       },
-      "package": "com.proanimate.connect",
-      "permissions": ["RECORD_AUDIO"]
+      "package": "com.peoplewallet.app",
+      "permissions": [
+        "RECORD_AUDIO"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -36,9 +39,10 @@
       [
         "expo-audio",
         {
-          "microphonePermission": "Allow ProAnimate Connect to access your microphone for voice memos."
+          "microphonePermission": "Allow PeopleWallet to access your microphone for voice memos."
         }
-      ]
+      ],
+      "@react-native-community/datetimepicker"
     ],
     "extra": {}
   }

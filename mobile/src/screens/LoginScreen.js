@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   View,
   Text,
@@ -10,13 +10,16 @@ import {
 } from 'react-native';
 import * as WebBrowser from 'expo-web-browser';
 import * as Linking from 'expo-linking';
-import { colors, spacing, typography, borderRadius } from '../theme/colors';
+import { spacing, typography, borderRadius } from '../theme/colors';
+import { useTheme } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext';
 import { authAPI } from '../services/api';
 import Button from '../components/Button';
 import Input from '../components/Input';
 
 const LoginScreen = () => {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const { login, register, loginWithLinkedIn, loading, error, clearError } = useAuth();
   const [isRegister, setIsRegister] = useState(false);
   const [email, setEmail] = useState('');
@@ -98,14 +101,21 @@ const LoginScreen = () => {
         // User closed the browser — do nothing
       }
     } catch (err) {
-      console.error('LinkedIn login error:', err);
+      console.warn('LinkedIn login error:', err?.message, err?.response?.status, err?.response?.data);
       if (err.message?.includes('Network Error') || err.code === 'ECONNABORTED') {
         Alert.alert(
           'Connection Error',
           'Cannot reach the server. Make sure the backend is running on your computer.'
         );
       } else {
-        Alert.alert('Error', 'Failed to initiate LinkedIn login. Check server configuration.');
+        const serverMsg = err.response?.data?.error;
+        const status = err.response?.status;
+        const detail = serverMsg
+          ? `Server error: ${serverMsg}`
+          : status
+            ? `Server returned status ${status}`
+            : err.message || 'Unknown error';
+        Alert.alert('LinkedIn Login Error', detail);
       }
     }
   };
@@ -117,8 +127,8 @@ const LoginScreen = () => {
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
         <View style={styles.header}>
-          <Text style={styles.logo}>ProAnimate</Text>
-          <Text style={styles.logoSub}>Connect</Text>
+          <Text style={styles.logo}>PeopleWallet</Text>
+          <Text style={styles.logoSub}></Text>
           <Text style={styles.tagline}>
             Remember everyone you meet.
           </Text>
@@ -189,7 +199,7 @@ const LoginScreen = () => {
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,

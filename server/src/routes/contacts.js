@@ -1,10 +1,13 @@
 const express = require('express');
+const crypto = require('crypto');
 const { query, getClient } = require('../config/database');
 const { authenticate, contactRateLimit } = require('../middleware/auth');
 const { validateCreateContact, validateUpdateContact, validateUUID, contentFilter } = require('../middleware/validation');
 const { auditLog } = require('../middleware/audit');
 const { encrypt, decrypt } = require('../utils/encryption');
 const { touchContact, getStaleContacts } = require('../services/decay-reminders');
+const { getMutualConnectionsForContact, discoverMutualConnections } = require('../services/mutual-connections');
+const { attemptUserLink, confirmLink, dismissLink } = require('../services/user-linking');
 const logger = require('../utils/logger');
 
 const router = express.Router();
@@ -24,6 +27,7 @@ router.get('/', async (req, res) => {
       school,
       company,
       event_name,
+      club_id,
       source,
       is_favorite,
       sort = 'created_at',
@@ -66,10 +70,24 @@ router.get('/', async (req, res) => {
       paramIndex++;
     }
 
-    // Filter by event
+    // Filter by event (matches event_name in contact_context or event_contacts linked events)
     if (event_name) {
-      whereClause += ` AND EXISTS (SELECT 1 FROM contact_context cc WHERE cc.contact_id = c.id AND cc.event_name ILIKE $${paramIndex})`;
+      whereClause += ` AND (
+        EXISTS (SELECT 1 FROM contact_context cc2 WHERE cc2.contact_id = c.id AND cc2.event_name ILIKE $${paramIndex})
+        OR EXISTS (SELECT 1 FROM event_contacts ec JOIN events ev ON ev.id = ec.event_id WHERE ec.contact_id = c.id AND ev.name ILIKE $${paramIndex})
+      )`;
       params.push(`%${event_name}%`);
+      paramIndex++;
+    }
+
+    // Filter by club (contacts linked to events belonging to a club)
+    if (club_id) {
+      whereClause += ` AND EXISTS (
+        SELECT 1 FROM event_contacts ec2
+        JOIN events ev2 ON ev2.id = ec2.event_id
+        WHERE ec2.contact_id = c.id AND ev2.club_id = $${paramIndex}
+      )`;
+      params.push(club_id);
       paramIndex++;
     }
 
@@ -107,7 +125,8 @@ router.get('/', async (req, res) => {
         c.is_favorite, c.source, c.created_at, c.updated_at,
         cp.school, cp.graduation_year, cp.major, cp.company, cp.job_title,
         cc.event_name, cc.met_date, cc.how_met,
-        (SELECT array_agg(ct.tag_name) FROM contact_tags ct WHERE ct.contact_id = c.id) as tags
+        (SELECT array_agg(ct.tag_name) FROM contact_tags ct WHERE ct.contact_id = c.id) as tags,
+        (SELECT COUNT(*) FROM user_connections uc WHERE uc.contact_a_id = c.id OR uc.contact_b_id = c.id)::int as mutual_count
       FROM contacts c
       LEFT JOIN contact_professional cp ON cp.contact_id = c.id
       LEFT JOIN contact_context cc ON cc.contact_id = c.id
@@ -144,6 +163,37 @@ router.get('/stale', async (req, res) => {
   } catch (error) {
     logger.error('Get stale contacts error:', error);
     res.status(500).json({ error: 'Failed to get stale contacts' });
+  }
+});
+
+/**
+ * GET /api/contacts/:id/mutual
+ * Get mutual connections for a specific contact.
+ * Returns other platform users who also have this person saved.
+ */
+router.get('/:id/mutual', validateUUID, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Verify ownership
+    const contactResult = await query(
+      'SELECT id FROM contacts WHERE id = $1 AND user_id = $2',
+      [id, req.user.id]
+    );
+
+    if (contactResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Contact not found' });
+    }
+
+    // Trigger discovery in case there are new matches
+    await discoverMutualConnections(id, req.user.id);
+
+    // Fetch mutual connections
+    const connections = await getMutualConnectionsForContact(id, req.user.id);
+    res.json({ connections });
+  } catch (error) {
+    logger.error('Get contact mutual connections error:', error);
+    res.status(500).json({ error: 'Failed to fetch mutual connections' });
   }
 });
 
@@ -187,6 +237,42 @@ router.get('/:id', validateUUID, async (req, res) => {
     }
     delete contact.encrypted_blob;
 
+    // Fetch linked user's public profile if linked
+    let linked_profile = null;
+    if (contact.linked_user_id) {
+      try {
+        const [linkedUser, linkedPro, linkedSocial, linkedAppearance] = await Promise.all([
+          query('SELECT id, name, nickname, pronouns, avatar_url, bio, location, profile_visibility FROM users WHERE id = $1', [contact.linked_user_id]),
+          query('SELECT job_title, company, department, school, major, graduation_year FROM user_professional WHERE user_id = $1', [contact.linked_user_id]),
+          query('SELECT platform, handle, url FROM user_social WHERE user_id = $1', [contact.linked_user_id]),
+          query('SELECT height_range, hair_color, glasses, distinguishing_features FROM user_appearance WHERE user_id = $1', [contact.linked_user_id]),
+        ]);
+        if (linkedUser.rows.length > 0) {
+          const lu = linkedUser.rows[0];
+          const visibility = lu.profile_visibility || 'public';
+          const fullProfile = { id: lu.id, name: lu.name, nickname: lu.nickname, pronouns: lu.pronouns, avatar_url: lu.avatar_url, bio: lu.bio, location: lu.location, professional: linkedPro.rows[0] || null, social: linkedSocial.rows, appearance: linkedAppearance.rows[0] || null };
+          if (visibility === 'private') {
+            linked_profile = { id: lu.id, name: lu.name, avatar_url: lu.avatar_url, profile_visibility: 'private' };
+          } else if (visibility === 'mutual_only') {
+            // Check if linked user has a contact linked back to the requester
+            const reverseLink = await query(
+              'SELECT id FROM contacts WHERE user_id = $1 AND linked_user_id = $2 LIMIT 1',
+              [contact.linked_user_id, req.user.id]
+            );
+            if (reverseLink.rows.length > 0) {
+              linked_profile = fullProfile;
+            } else {
+              linked_profile = { id: lu.id, name: lu.name, avatar_url: lu.avatar_url, profile_visibility: 'mutual_only' };
+            }
+          } else {
+            linked_profile = fullProfile;
+          }
+        }
+      } catch (linkErr) {
+        logger.warn('Failed to fetch linked profile:', linkErr.message);
+      }
+    }
+
     res.json({
       ...contact,
       professional: professional.rows[0] || null,
@@ -195,6 +281,8 @@ router.get('/:id', validateUUID, async (req, res) => {
       context: context.rows[0] || null,
       notes: notes.rows,
       tags: tags.rows.map((t) => t.tag_name),
+      linked_profile,
+      link_confidence: contact.link_confidence || null,
     });
   } catch (error) {
     logger.error('Get contact error:', error);
@@ -329,6 +417,20 @@ router.post(
       await client.query('COMMIT');
 
       logger.info(`Contact created: ${contact.id} by user ${req.user.id}`);
+
+      // Discover mutual connections asynchronously (non-blocking)
+      discoverMutualConnections(contact.id, req.user.id).catch((err) =>
+        logger.warn('Background mutual connection discovery failed:', err.message)
+      );
+
+      // Attempt to link contact to a registered user (non-blocking)
+      attemptUserLink(contact.id, req.user.id, {
+        email: req.body.email || null,
+        socialLinks: social || [],
+        fullName: full_name,
+      }).catch((err) =>
+        logger.warn('Background user linking failed:', err.message)
+      );
 
       res.status(201).json({
         id: contact.id,
@@ -487,6 +589,39 @@ router.put(
 );
 
 /**
+ * POST /api/contacts/:id/link
+ * Confirm a suggested user link (or manually link a contact to a user)
+ */
+router.post('/:id/link', validateUUID, async (req, res) => {
+  try {
+    const { linked_user_id } = req.body;
+    if (!linked_user_id) {
+      return res.status(400).json({ error: 'linked_user_id is required' });
+    }
+
+    await confirmLink(req.params.id, req.user.id, linked_user_id);
+    res.json({ message: 'Contact linked successfully' });
+  } catch (error) {
+    logger.error('Link contact error:', error);
+    res.status(error.message === 'Contact not found' ? 404 : 500).json({ error: error.message || 'Failed to link contact' });
+  }
+});
+
+/**
+ * POST /api/contacts/:id/unlink
+ * Dismiss/remove a user link from a contact
+ */
+router.post('/:id/unlink', validateUUID, async (req, res) => {
+  try {
+    await dismissLink(req.params.id, req.user.id);
+    res.json({ message: 'Contact unlinked successfully' });
+  } catch (error) {
+    logger.error('Unlink contact error:', error);
+    res.status(error.message === 'Contact not found' ? 404 : 500).json({ error: error.message || 'Failed to unlink contact' });
+  }
+});
+
+/**
  * DELETE /api/contacts/:id
  */
 router.delete(
@@ -602,6 +737,92 @@ router.post('/:id/touch', validateUUID, async (req, res) => {
   } catch (error) {
     logger.error('Touch contact error:', error);
     res.status(500).json({ error: 'Failed to update contact interaction' });
+  }
+});
+
+/**
+ * GET /api/contacts/:id/share
+ * Generate or retrieve a shareable link/token for a contact
+ * Creates a share_token if one doesn't exist, enables sharing
+ */
+router.get('/:id/share', validateUUID, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Verify ownership
+    const contactResult = await query(
+      'SELECT id, share_token, share_enabled FROM contacts WHERE id = $1 AND user_id = $2',
+      [id, req.user.id]
+    );
+
+    if (contactResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Contact not found' });
+    }
+
+    const contact = contactResult.rows[0];
+    let shareToken = contact.share_token;
+
+    // Generate a new share token if one doesn't exist
+    if (!shareToken) {
+      shareToken = crypto.randomBytes(32).toString('hex');
+      await query(
+        'UPDATE contacts SET share_token = $1, share_enabled = TRUE WHERE id = $2',
+        [shareToken, id]
+      );
+    } else if (!contact.share_enabled) {
+      // Re-enable sharing if it was disabled
+      await query(
+        'UPDATE contacts SET share_enabled = TRUE WHERE id = $1',
+        [id]
+      );
+    }
+
+    const baseUrl = process.env.PUBLIC_BASE_URL || 'https://app.peoplewallet.com';
+    const shareUrl = `${baseUrl}/shared/${shareToken}`;
+
+    res.json({
+      share_token: shareToken,
+      share_url: shareUrl,
+      share_enabled: true,
+    });
+  } catch (error) {
+    logger.error('Generate share link error:', error);
+    res.status(500).json({ error: 'Failed to generate share link' });
+  }
+});
+
+/**
+ * PUT /api/contacts/:id/share
+ * Toggle sharing on/off for a contact
+ */
+router.put('/:id/share', validateUUID, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { share_enabled } = req.body;
+
+    if (typeof share_enabled !== 'boolean') {
+      return res.status(400).json({ error: 'share_enabled must be a boolean' });
+    }
+
+    // Verify ownership
+    const contactResult = await query(
+      'SELECT id FROM contacts WHERE id = $1 AND user_id = $2',
+      [id, req.user.id]
+    );
+
+    if (contactResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Contact not found' });
+    }
+
+    await query(
+      'UPDATE contacts SET share_enabled = $1 WHERE id = $2',
+      [share_enabled, id]
+    );
+
+    res.json({ share_enabled, message: `Sharing ${share_enabled ? 'enabled' : 'disabled'}` });
+  } catch (error) {
+    logger.error('Toggle share error:', error);
+    res.status(500).json({ error: 'Failed to update sharing' });
   }
 });
 

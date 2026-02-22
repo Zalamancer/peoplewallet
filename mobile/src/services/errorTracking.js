@@ -1,5 +1,5 @@
 /**
- * Error tracking service for ProAnimate Connect (Mobile)
+ * Error tracking service for PeopleWallet (Mobile)
  *
  * Setup:
  * 1. Install: npx expo install @sentry/react-native
@@ -65,7 +65,7 @@ export const captureException = (error, context = {}) => {
   if (Sentry) {
     Sentry.captureException(error, { extra: context });
   } else {
-    console.error('[Error Tracking]', error.message, context);
+    console.warn('[Error Tracking]', error.message, context);
   }
 };
 

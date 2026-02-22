@@ -1,7 +1,7 @@
 {
-  "name": "proanimate-connect-server",
+  "name": "peoplewallet-server",
   "version": "1.0.0",
-  "description": "ProAnimate Connect API Server",
+  "description": "PeopleWallet API Server",
   "main": "src/index.js",
   "scripts": {
     "dev": "nodemon src/index.js",
@@ -15,7 +15,9 @@
   },
   "jest": {
     "testEnvironment": "node",
-    "testMatch": ["**/tests/**/*.test.js"],
+    "testMatch": [
+      "**/tests/**/*.test.js"
+    ],
     "collectCoverageFrom": [
       "src/**/*.js",
       "!src/index.js",
@@ -39,6 +41,9 @@
     "multer": "^1.4.5-lts.1",
     "pg": "^8.11.3",
     "pg-pool": "^3.6.1",
+    "sharp": "^0.34.5",
+    "socket.io": "^4.8.3",
+    "tesseract.js": "^7.0.0",
     "uuid": "^9.0.0",
     "winston": "^3.11.0"
   },

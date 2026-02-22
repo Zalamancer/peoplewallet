@@ -22,7 +22,7 @@ const initSentry = (app) => {
     Sentry.init({
       dsn,
       environment: process.env.NODE_ENV || 'development',
-      release: `proanimate-server@${process.env.npm_package_version || '1.0.0'}`,
+      release: `peoplewallet-server@${process.env.npm_package_version || '1.0.0'}`,
       tracesSampleRate: process.env.NODE_ENV === 'production' ? 0.2 : 1.0,
       integrations: [
         Sentry.httpIntegration(),

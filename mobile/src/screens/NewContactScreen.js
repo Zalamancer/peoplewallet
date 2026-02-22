@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -10,17 +10,23 @@ import {
   Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { colors, spacing, typography, borderRadius, shadows } from '../theme/colors';
-import { contactsAPI, linkedinAPI } from '../services/api';
+import { spacing, typography, borderRadius, shadows } from '../theme/colors';
+import { useTheme } from '../context/ThemeContext';
+import { contactsAPI, linkedinAPI, autoTagAPI } from '../services/api';
 import Button from '../components/Button';
 import Input from '../components/Input';
+import LocationInput from '../components/LocationInput';
 import Tag from '../components/Tag';
+import AutoTagPrompt from '../components/AutoTagPrompt';
+import AppearanceTagSelector from '../components/AppearanceTagSelector';
+import { SocialIcon, getSocialLabel, SOCIAL_PLATFORMS } from '../components/SocialIcon';
+import { Ionicons } from '@expo/vector-icons';
 
-const APPEARANCE_HEIGHT = ['short', 'average', 'tall', 'very_tall'];
-const APPEARANCE_HAIR = ['black', 'brown', 'blonde', 'red', 'gray', 'white', 'other', 'none'];
-const SOCIAL_PLATFORMS = ['linkedin', 'instagram', 'twitter', 'github', 'website'];
+const GENDER_OPTIONS = ['Male', 'Female'];
 
 const NewContactScreen = ({ navigation, route }) => {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   // Pre-filled data from AI extraction
   const prefilled = route.params?.contactData || {};
   const confidenceFields = route.params?.fields || {};
@@ -51,10 +57,18 @@ const NewContactScreen = ({ navigation, route }) => {
     return defaults;
   });
 
-  // Appearance
-  const [heightRange, setHeightRange] = useState(prefilled.appearance?.height_range || '');
-  const [hairColor, setHairColor] = useState(prefilled.appearance?.hair_color || '');
-  const [glasses, setGlasses] = useState(prefilled.appearance?.glasses || false);
+  // Appearance (consolidated for AppearanceTagSelector)
+  const [appearance, setAppearance] = useState({
+    heightRange: prefilled.appearance?.height_range || null,
+    hairColor: prefilled.appearance?.hair_color || null,
+    glasses: prefilled.appearance?.glasses || false,
+    distinguishingFeatures: prefilled.appearance?.distinguishing_features || [],
+  });
+
+  // Auto-tag state
+  const [showAutoTag, setShowAutoTag] = useState(false);
+  const [recentEvent, setRecentEvent] = useState(null);
+  const [newContactId, setNewContactId] = useState(null);
 
   // Context
   const [howMet, setHowMet] = useState(prefilled.context?.how_met || '');
@@ -75,6 +89,21 @@ const NewContactScreen = ({ navigation, route }) => {
   const [linkedinLookupUrl, setLinkedinLookupUrl] = useState('');
   const [linkedinLoading, setLinkedinLoading] = useState(false);
   const [linkedinStatus, setLinkedinStatus] = useState(null); // 'success' | 'partial' | 'error'
+
+  // Check for recently attended events on mount
+  useEffect(() => {
+    const fetchRecentEvent = async () => {
+      try {
+        const response = await autoTagAPI.checkRecent();
+        if (response.data?.event) {
+          setRecentEvent(response.data.event);
+        }
+      } catch {
+        // Silently ignore - auto-tag is optional
+      }
+    };
+    fetchRecentEvent();
+  }, []);
 
   const handleLinkedInLookup = async () => {
     const url = linkedinLookupUrl.trim();
@@ -215,14 +244,19 @@ const NewContactScreen = ({ navigation, route }) => {
             url:
               platform === 'website'
                 ? handle.trim()
-                : `https://${platform}.com/${handle.trim().replace('@', '')}`,
+                : platform === 'discord' || platform === 'groupme'
+                  ? ''
+                  : `https://${platform}.com/${handle.trim().replace('@', '')}`,
           })),
         appearance:
-          heightRange || hairColor || glasses
+          appearance.heightRange || appearance.hairColor || appearance.glasses || appearance.distinguishingFeatures.length > 0
             ? {
-              height_range: heightRange || undefined,
-              hair_color: hairColor || undefined,
-              glasses,
+              height_range: appearance.heightRange || undefined,
+              hair_color: appearance.hairColor || undefined,
+              glasses: appearance.glasses,
+              distinguishing_features: appearance.distinguishingFeatures.length > 0
+                ? appearance.distinguishingFeatures
+                : undefined,
             }
             : undefined,
         context:
@@ -243,9 +277,11 @@ const NewContactScreen = ({ navigation, route }) => {
       const response = await contactsAPI.create(contactData);
       const newContact = response.data;
 
-      // Navigate back to contact list (pop all the way past dictation/recording)
-      // and then to the new contact detail
-      if (newContact?.id) {
+      // If a recent event exists, prompt the user to auto-tag before navigating
+      if (newContact?.id && recentEvent) {
+        setNewContactId(newContact.id);
+        setShowAutoTag(true);
+      } else if (newContact?.id) {
         navigation.popToTop();
         navigation.navigate('ContactDetail', { contactId: newContact.id });
       } else {
@@ -259,29 +295,41 @@ const NewContactScreen = ({ navigation, route }) => {
     }
   };
 
+  const handleAutoTagConfirm = async () => {
+    try {
+      await autoTagAPI.tagContact(recentEvent.id, newContactId);
+    } catch {
+      // Silently ignore - tagging failure shouldn't block navigation
+    }
+    setShowAutoTag(false);
+    navigation.popToTop();
+    navigation.navigate('ContactDetail', { contactId: newContactId });
+  };
+
+  const handleAutoTagDismiss = () => {
+    setShowAutoTag(false);
+    navigation.popToTop();
+    navigation.navigate('ContactDetail', { contactId: newContactId });
+  };
+
   const sections = [
-    { key: 'identity', label: 'Identity' },
-    { key: 'professional', label: 'Professional' },
-    { key: 'social', label: 'Social' },
-    { key: 'appearance', label: 'Appearance' },
-    { key: 'context', label: 'Context' },
-    { key: 'notes', label: 'Notes & Tags' },
+    { key: 'identity', label: 'Identity', icon: 'person-outline' },
+    { key: 'professional', label: 'Professional', icon: 'briefcase-outline' },
+    { key: 'social', label: 'Social', icon: 'globe-outline' },
+    { key: 'appearance', label: 'Appearance', icon: 'body-outline' },
+    { key: 'context', label: 'Context', icon: 'map-outline' },
+    { key: 'notes', label: 'Notes & Tags', icon: 'pricetag-outline' },
   ];
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
+      {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-          <Text style={styles.backText}>Cancel</Text>
+          <Ionicons name="close" size={24} color={colors.textPrimary} />
         </TouchableOpacity>
         <Text style={styles.title} numberOfLines={1} adjustsFontSizeToFit>New Contact</Text>
-        <Button
-          title="Save"
-          onPress={handleSave}
-          loading={saving}
-          size="sm"
-          disabled={!fullName.trim()}
-        />
+        <View style={{ width: 40 }} />
       </View>
 
       {/* Section tabs */}
@@ -300,6 +348,11 @@ const NewContactScreen = ({ navigation, route }) => {
             ]}
             onPress={() => setActiveSection(s.key)}
           >
+            <Ionicons
+              name={s.icon}
+              size={18}
+              color={activeSection === s.key ? colors.primary : colors.textTertiary}
+            />
             <Text
               style={[
                 styles.sectionTabText,
@@ -339,14 +392,22 @@ const NewContactScreen = ({ navigation, route }) => {
                 placeholder="e.g., Sar"
                 confidenceStatus={getConfidence('name', 'nickname')}
               />
-              <Input
-                label="Pronouns"
-                value={pronouns}
-                onChangeText={setPronouns}
-                placeholder="e.g., she/her"
-                autoCapitalize="none"
-                confidenceStatus={getConfidence('name', 'pronouns')}
-              />
+              <View>
+                <Text style={styles.fieldLabel}>Gender</Text>
+                <View style={styles.genderRow}>
+                  {GENDER_OPTIONS.map((option) => (
+                    <TouchableOpacity
+                      key={option}
+                      style={[styles.genderPill, pronouns === option && styles.genderPillActive]}
+                      onPress={() => setPronouns(pronouns === option ? '' : option)}
+                    >
+                      <Text style={[styles.genderPillText, pronouns === option && styles.genderPillTextActive]}>
+                        {option}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
             </View>
           )}
 
@@ -435,76 +496,40 @@ const NewContactScreen = ({ navigation, route }) => {
               </View>
 
               {SOCIAL_PLATFORMS.map((platform) => (
-                <Input
-                  key={platform}
-                  label={platform.charAt(0).toUpperCase() + platform.slice(1)}
-                  value={socialLinks[platform]}
-                  onChangeText={(text) =>
-                    setSocialLinks({ ...socialLinks, [platform]: text })
-                  }
-                  placeholder={
-                    platform === 'website'
-                      ? 'https://example.com'
-                      : platform === 'linkedin'
-                        ? 'https://linkedin.com/in/username'
-                        : `@username`
-                  }
-                  autoCapitalize="none"
-                  keyboardType={platform === 'website' || platform === 'linkedin' ? 'url' : 'default'}
-                />
+                <View key={platform} style={styles.socialRow}>
+                  <View style={styles.socialIconWrapper}>
+                    <SocialIcon platform={platform} size={20} color={colors.primary} />
+                  </View>
+                  <View style={styles.socialInputWrapper}>
+                    <Input
+                      label={getSocialLabel(platform)}
+                      value={socialLinks[platform]}
+                      onChangeText={(text) =>
+                        setSocialLinks({ ...socialLinks, [platform]: text })
+                      }
+                      placeholder={
+                        platform === 'website'
+                          ? 'https://example.com'
+                          : platform === 'linkedin'
+                            ? 'https://linkedin.com/in/username'
+                            : platform === 'discord'
+                              ? 'username'
+                              : platform === 'groupme'
+                                ? 'username or group name'
+                                : `@username`
+                      }
+                      autoCapitalize="none"
+                      keyboardType={platform === 'website' || platform === 'linkedin' ? 'url' : 'default'}
+                    />
+                  </View>
+                </View>
               ))}
             </View>
           )}
 
           {/* Appearance Section */}
           {activeSection === 'appearance' && (
-            <View>
-              <Text style={styles.fieldLabel}>Height Range</Text>
-              <View style={styles.tagRow}>
-                {APPEARANCE_HEIGHT.map((h) => (
-                  <Tag
-                    key={h}
-                    label={h.replace('_', ' ')}
-                    selected={heightRange === h}
-                    onPress={() => setHeightRange(heightRange === h ? '' : h)}
-                    variant={heightRange === h ? 'primary' : 'default'}
-                    size="lg"
-                  />
-                ))}
-              </View>
-
-              <Text style={[styles.fieldLabel, { marginTop: spacing.lg }]}>Hair Color</Text>
-              <View style={styles.tagRow}>
-                {APPEARANCE_HAIR.map((h) => (
-                  <Tag
-                    key={h}
-                    label={h}
-                    selected={hairColor === h}
-                    onPress={() => setHairColor(hairColor === h ? '' : h)}
-                    variant={hairColor === h ? 'primary' : 'default'}
-                    size="lg"
-                  />
-                ))}
-              </View>
-
-              <Text style={[styles.fieldLabel, { marginTop: spacing.lg }]}>Glasses</Text>
-              <View style={styles.tagRow}>
-                <Tag
-                  label="Yes"
-                  selected={glasses === true}
-                  onPress={() => setGlasses(!glasses)}
-                  variant={glasses ? 'primary' : 'default'}
-                  size="lg"
-                />
-                <Tag
-                  label="No"
-                  selected={glasses === false}
-                  onPress={() => setGlasses(false)}
-                  variant={!glasses ? 'default' : 'default'}
-                  size="lg"
-                />
-              </View>
-            </View>
+            <AppearanceTagSelector value={appearance} onChange={setAppearance} />
           )}
 
           {/* Context Section */}
@@ -530,13 +555,7 @@ const NewContactScreen = ({ navigation, route }) => {
                 onChangeText={setMetDate}
                 placeholder="e.g., 2026-02-15"
               />
-              <Input
-                label="Location"
-                value={location}
-                onChangeText={setLocation}
-                placeholder="e.g., UTD Student Union"
-                confidenceStatus={getConfidence('context', 'location')}
-              />
+              <LocationInput value={location} onChangeText={setLocation} />
             </View>
           )}
 
@@ -586,12 +605,29 @@ const NewContactScreen = ({ navigation, route }) => {
             </View>
           )}
         </ScrollView>
+
+        {/* Footer Save Button */}
+        <View style={styles.footer}>
+          <Button
+            title={saving ? 'Saving...' : 'Save Contact'}
+            onPress={handleSave}
+            disabled={saving || !fullName.trim()}
+            fullWidth
+          />
+        </View>
       </KeyboardAvoidingView>
+      {/* Auto-tag prompt after saving */}
+      <AutoTagPrompt
+        event={recentEvent}
+        visible={showAutoTag}
+        onConfirm={handleAutoTagConfirm}
+        onDismiss={handleAutoTagDismiss}
+      />
     </SafeAreaView>
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
@@ -603,19 +639,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.borderLight, // softer separator
-    backgroundColor: colors.white,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderBottomWidth: 0.5,
+    borderBottomColor: colors.borderLight,
+    backgroundColor: colors.surface,
   },
   backButton: {
-    padding: spacing.sm, // better tap target
-  },
-  backText: {
-    ...typography.body,
-    fontWeight: '600',
-    color: colors.textSecondary, // De-emphasize cancel slightly
+    padding: spacing.sm,
   },
   title: {
     ...typography.h3,
@@ -625,28 +656,34 @@ const styles = StyleSheet.create({
     marginHorizontal: spacing.sm,
   },
   sectionTabs: {
-    backgroundColor: colors.white,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.borderLight, // softer line
-    maxHeight: 56, // slightly taller
+    backgroundColor: colors.surface,
+    borderBottomWidth: 0.5,
+    borderBottomColor: colors.borderLight,
+    maxHeight: 56,
   },
   sectionTabsContent: {
     paddingHorizontal: spacing.md,
-    gap: spacing.xs,
+    paddingVertical: spacing.sm,
+    gap: spacing.sm,
     alignItems: 'center',
   },
   sectionTab: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
     borderRadius: borderRadius.full,
-    marginRight: spacing.xs,
+    backgroundColor: colors.background,
+    gap: spacing.xs,
   },
   sectionTabActive: {
     backgroundColor: colors.primaryBg,
   },
   sectionTabText: {
-    ...typography.label,
+    ...typography.bodySmall,
     color: colors.textTertiary,
+    fontWeight: '500',
   },
   sectionTabTextActive: {
     color: colors.primary,
@@ -662,7 +699,34 @@ const styles = StyleSheet.create({
   fieldLabel: {
     ...typography.label,
     color: colors.textSecondary,
-    marginBottom: spacing.sm,
+    marginBottom: spacing.xs,
+  },
+  genderRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  genderPill: {
+    flex: 1,
+    paddingVertical: spacing.sm + 2,
+    borderRadius: borderRadius.md,
+    backgroundColor: colors.borderLight,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'transparent',
+  },
+  genderPillActive: {
+    backgroundColor: colors.primaryBg,
+    borderColor: colors.primary,
+  },
+  genderPillText: {
+    ...typography.body,
+    color: colors.textTertiary,
+    fontWeight: '500',
+  },
+  genderPillTextActive: {
+    color: colors.primary,
+    fontWeight: '600',
   },
   tagRow: {
     flexDirection: 'row',
@@ -680,6 +744,30 @@ const styles = StyleSheet.create({
   addTagButton: {
     marginTop: 2,
   },
+  socialRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    gap: spacing.sm,
+  },
+  socialIconWrapper: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: colors.primaryBg,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: spacing.xs,
+  },
+  socialInputWrapper: {
+    flex: 1,
+  },
+  footer: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.md,
+    backgroundColor: colors.surface,
+    borderTopWidth: 0.5,
+    borderTopColor: colors.borderLight,
+  },
 
   // LinkedIn auto-fill
   linkedinCard: {
@@ -693,7 +781,7 @@ const styles = StyleSheet.create({
   },
   linkedinCardTitle: {
     ...typography.h3,
-    color: colors.primaryDark,
+    color: colors.textPrimary,
     marginBottom: spacing.xs,
   },
   linkedinCardDesc: {

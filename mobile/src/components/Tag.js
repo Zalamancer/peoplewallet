@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { TouchableOpacity, Text, StyleSheet, View } from 'react-native';
-import { colors, borderRadius, typography, spacing } from '../theme/colors';
+import { borderRadius, typography, spacing } from '../theme/colors';
+import { useTheme } from '../context/ThemeContext';
 
 const Tag = ({
   label,
@@ -11,6 +12,9 @@ const Tag = ({
   variant = 'default', // default, primary, success, warning
   size = 'md',
 }) => {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+
   const tagStyle = [
     styles.tag,
     styles[`tag_${variant}`],
@@ -43,6 +47,9 @@ const Tag = ({
 };
 
 export const TagGroup = ({ tags, selectedTags = [], onToggle, wrap = true }) => {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+
   return (
     <View style={[styles.tagGroup, wrap && styles.tagGroupWrap]}>
       {tags.map((tag) => (
@@ -58,7 +65,7 @@ export const TagGroup = ({ tags, selectedTags = [], onToggle, wrap = true }) => 
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors) => StyleSheet.create({
   tag: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -123,7 +130,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   labelSelected: {
-    color: colors.white,
+    color: colors.textInverse,
   },
   removeButton: {
     marginLeft: 4,

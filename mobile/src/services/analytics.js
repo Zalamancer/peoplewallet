@@ -1,5 +1,5 @@
 /**
- * Analytics service for ProAnimate Connect (Mobile)
+ * Analytics service for PeopleWallet (Mobile)
  * Lightweight Mixpanel integration for client-side event tracking
  *
  * Key events tracked:

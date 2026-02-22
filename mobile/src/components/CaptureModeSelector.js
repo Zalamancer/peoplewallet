@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { colors, spacing, typography, borderRadius, shadows } from '../theme/colors';
+import { spacing, typography, borderRadius, shadows } from '../theme/colors';
+import { useTheme } from '../context/ThemeContext';
 import { Ionicons } from '@expo/vector-icons';
 
 /**
@@ -9,6 +10,9 @@ import { Ionicons } from '@expo/vector-icons';
  * Three modes: Manual, Dictation (AI), Live Recording
  */
 const CaptureModeSelector = ({ navigation, onClose }) => {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+
   const modes = [
     {
       key: 'manual',
@@ -41,6 +45,14 @@ const CaptureModeSelector = ({ navigation, onClose }) => {
       description: 'Auto-fill from a LinkedIn URL',
       screen: 'NewContact',
       params: { source: 'linkedin' },
+    },
+    {
+      key: 'quick-add',
+      icon: 'flash-outline',
+      title: 'Quick Add',
+      description: 'Add from recent Instagram/LinkedIn connections',
+      screen: 'QuickAdd',
+      badge: 'New',
     },
   ];
 
@@ -88,7 +100,7 @@ const CaptureModeSelector = ({ navigation, onClose }) => {
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors) => StyleSheet.create({
   container: {
     flex: 1,
     paddingHorizontal: spacing.xl,
@@ -111,7 +123,7 @@ const styles = StyleSheet.create({
   modeCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.white,
+    backgroundColor: colors.surface,
     borderRadius: borderRadius.xl, // pill-like
     padding: spacing.lg,
     ...shadows.md, // slight pop
@@ -151,7 +163,7 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
   },
   modeTitleHighlight: {
-    color: colors.primaryDark, // slightly deeper for contrast
+    color: colors.textPrimary, // slightly deeper for contrast
     fontWeight: '700',
   },
   modeDescription: {
@@ -168,7 +180,7 @@ const styles = StyleSheet.create({
   },
   badgeText: {
     ...typography.caption,
-    color: colors.white,
+    color: colors.textInverse,
     fontWeight: '700',
     fontSize: 10,
     letterSpacing: 0.5,

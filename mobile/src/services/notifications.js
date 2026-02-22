@@ -48,7 +48,7 @@ export const registerForPushNotifications = async () => {
       platform: Platform.OS,
     });
   } catch (error) {
-    console.error('Failed to register push token with server:', error);
+    console.warn('Failed to register push token with server:', error?.message);
   }
 
   // Configure Android notification channel
@@ -89,7 +89,7 @@ export const unregisterPushToken = async (pushToken) => {
       data: { push_token: pushToken },
     });
   } catch (error) {
-    console.error('Failed to unregister push token:', error);
+    console.warn('Failed to unregister push token:', error?.message);
   }
 };
 

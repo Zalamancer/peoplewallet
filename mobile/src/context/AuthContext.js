@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Linking from 'expo-linking';
-import { authAPI } from '../services/api';
+import { authAPI, setOnUnauthorized } from '../services/api';
 
 const AuthContext = createContext(null);
 
@@ -24,14 +24,14 @@ export const AuthProvider = ({ children }) => {
     checkAuth();
   }, []);
 
-  // Listen for LinkedIn OAuth deep link callback (proanimate://auth/linkedin?token=...)
+  // Listen for LinkedIn OAuth deep link callback (peoplewallet://auth/linkedin?token=...)
   useEffect(() => {
     const handleDeepLink = async ({ url }) => {
       if (!url) return;
 
       try {
         const parsed = Linking.parse(url);
-        // Handle: proanimate://auth/linkedin?token=xxx&userId=xxx&name=xxx&email=xxx
+        // Handle: peoplewallet://auth/linkedin?token=xxx&userId=xxx&name=xxx&email=xxx
         if (parsed.path === 'auth/linkedin' && parsed.queryParams?.token) {
           const { token: authToken, userId, name, email } = parsed.queryParams;
 
@@ -58,7 +58,7 @@ export const AuthProvider = ({ children }) => {
           }
         }
       } catch (err) {
-        console.error('Deep link handling error:', err);
+        console.warn('Deep link handling error:', err?.message);
       }
     };
 
@@ -95,7 +95,7 @@ export const AuthProvider = ({ children }) => {
         }
       }
     } catch (err) {
-      console.error('Auth check error:', err);
+      console.warn('Auth check error:', err?.message);
     } finally {
       setLoading(false);
     }
@@ -192,6 +192,15 @@ export const AuthProvider = ({ children }) => {
     setToken(null);
     setUser(null);
     setError(null);
+  }, []);
+
+  // Register the logout callback so the API interceptor can trigger a real logout on 401
+  useEffect(() => {
+    setOnUnauthorized(() => {
+      setToken(null);
+      setUser(null);
+    });
+    return () => setOnUnauthorized(null);
   }, []);
 
   const updateUser = useCallback(async (data) => {

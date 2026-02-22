@@ -7,7 +7,7 @@ const logger = winston.createLogger({
     winston.format.errors({ stack: true }),
     winston.format.json()
   ),
-  defaultMeta: { service: 'proanimate-connect' },
+  defaultMeta: { service: 'peoplewallet' },
   transports: [
     new winston.transports.Console({
       format: winston.format.combine(

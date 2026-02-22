@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, StyleSheet, TouchableOpacity, Text } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { colors, spacing, typography } from '../theme/colors';
+import { spacing, typography } from '../theme/colors';
+import { useTheme } from '../context/ThemeContext';
 import CaptureModeSelector from '../components/CaptureModeSelector';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -10,6 +11,8 @@ import { Ionicons } from '@expo/vector-icons';
  * User can pick: Manual, AI Dictation, Live Recording, or LinkedIn
  */
 const CaptureChooserScreen = ({ navigation }) => {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
@@ -22,7 +25,7 @@ const CaptureChooserScreen = ({ navigation }) => {
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,

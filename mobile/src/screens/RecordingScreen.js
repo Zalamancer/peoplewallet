@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -11,7 +11,8 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAudioRecorder, AudioModule, RecordingPresets, useAudioRecorderState } from 'expo-audio';
-import { colors, spacing, typography, borderRadius, shadows } from '../theme/colors';
+import { spacing, typography, borderRadius, shadows } from '../theme/colors';
+import { useTheme } from '../context/ThemeContext';
 import { aiAPI } from '../services/api';
 import Button from '../components/Button';
 import { Ionicons } from '@expo/vector-icons';
@@ -25,6 +26,9 @@ const STATES = {
 };
 
 const RecordingScreen = ({ navigation }) => {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+
   const [state, setState] = useState(STATES.CONSENT);
   const [transcriptionResult, setTranscriptionResult] = useState(null);
   const [extractionResult, setExtractionResult] = useState(null);
@@ -73,7 +77,7 @@ const RecordingScreen = ({ navigation }) => {
 
       setState(STATES.RECORDING);
     } catch (error) {
-      console.error('Recording error:', error);
+      console.warn('Recording error:', error?.message);
       Alert.alert('Error', 'Failed to start recording');
       setState(STATES.CONSENT);
     }
@@ -100,7 +104,7 @@ const RecordingScreen = ({ navigation }) => {
       setExtractionResult(response.data.extraction);
       setState(STATES.REVIEWING);
     } catch (error) {
-      console.error('Processing error:', error);
+      console.warn('Processing error:', error?.message);
       setState(STATES.ERROR);
       setErrorMessage(error.response?.data?.message || 'Failed to process recording');
     }
@@ -119,6 +123,15 @@ const RecordingScreen = ({ navigation }) => {
     const totalSeconds = Math.floor((ms || 0) / 1000);
     return `${Math.floor(totalSeconds / 60)}:${(totalSeconds % 60).toString().padStart(2, '0')}`;
   };
+
+  const ConsentItem = ({ checked, onToggle, label }) => (
+    <TouchableOpacity style={styles.consentItem} onPress={onToggle} activeOpacity={0.7}>
+      <View style={[styles.checkbox, checked && styles.checkboxChecked]}>
+        {checked && <Ionicons name="checkmark" size={16} color={colors.textInverse} />}
+      </View>
+      <Text style={styles.consentLabel}>{label}</Text>
+    </TouchableOpacity>
+  );
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -233,18 +246,9 @@ const RecordingScreen = ({ navigation }) => {
   );
 };
 
-const ConsentItem = ({ checked, onToggle, label }) => (
-  <TouchableOpacity style={styles.consentItem} onPress={onToggle} activeOpacity={0.7}>
-    <View style={[styles.checkbox, checked && styles.checkboxChecked]}>
-      {checked && <Ionicons name="checkmark" size={16} color={colors.white} />}
-    </View>
-    <Text style={styles.consentLabel}>{label}</Text>
-  </TouchableOpacity>
-);
-
-const styles = StyleSheet.create({
+const createStyles = (colors) => StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: spacing.md, paddingVertical: spacing.sm, borderBottomWidth: 1, borderBottomColor: colors.border, backgroundColor: colors.white },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: spacing.md, paddingVertical: spacing.sm, borderBottomWidth: 1, borderBottomColor: colors.border, backgroundColor: colors.surface },
   backButton: { padding: spacing.xs },
   backText: { ...typography.body, color: colors.primary },
   title: { ...typography.h3, color: colors.textPrimary },
@@ -261,20 +265,20 @@ const styles = StyleSheet.create({
   consentItem: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.md },
   checkbox: { width: 24, height: 24, borderRadius: borderRadius.sm, borderWidth: 2, borderColor: colors.border, alignItems: 'center', justifyContent: 'center', marginTop: 2 },
   checkboxChecked: { backgroundColor: colors.primary, borderColor: colors.primary },
-  checkmark: { color: colors.white, fontSize: 14, fontWeight: '700' },
+  checkmark: { color: colors.textInverse, fontSize: 14, fontWeight: '700' },
   consentLabel: { ...typography.body, color: colors.textPrimary, flex: 1, lineHeight: 24 },
   warning: { flexDirection: 'row', alignItems: 'flex-start', backgroundColor: '#FEF3C7', padding: spacing.md, borderRadius: borderRadius.md, marginBottom: spacing.xl, gap: spacing.sm },
   warningText: { ...typography.bodySmall, color: '#92400E', flex: 1, lineHeight: 20 },
 
   centeredContent: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: spacing.xl, paddingVertical: spacing.xxl * 2 },
   bigIndicator: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.recording, paddingHorizontal: spacing.lg, paddingVertical: spacing.sm, borderRadius: borderRadius.full, marginBottom: spacing.xl },
-  indicatorDot: { width: 12, height: 12, borderRadius: 6, backgroundColor: colors.white, marginRight: spacing.sm },
-  indicatorText: { ...typography.label, color: colors.white, fontWeight: '700', letterSpacing: 1 },
+  indicatorDot: { width: 12, height: 12, borderRadius: 6, backgroundColor: colors.surface, marginRight: spacing.sm },
+  indicatorText: { ...typography.label, color: colors.textInverse, fontWeight: '700', letterSpacing: 1 },
   duration: { fontSize: 56, fontWeight: '200', color: colors.textPrimary, fontVariant: ['tabular-nums'], marginBottom: spacing.md },
   recordHint: { ...typography.bodySmall, color: colors.textTertiary, textAlign: 'center', lineHeight: 22, marginBottom: spacing.xl },
   stopOuter: { width: 100, height: 100, borderRadius: 50, backgroundColor: colors.recordingBg, alignItems: 'center', justifyContent: 'center' },
   stopButton: { width: 80, height: 80, borderRadius: 40, backgroundColor: colors.recording, alignItems: 'center', justifyContent: 'center' },
-  stopIcon: { width: 24, height: 24, borderRadius: 4, backgroundColor: colors.white },
+  stopIcon: { width: 24, height: 24, borderRadius: 4, backgroundColor: colors.surface },
   hint: { ...typography.caption, color: colors.textTertiary, marginTop: spacing.lg },
 
   processingText: { ...typography.h3, color: colors.textPrimary, marginTop: spacing.lg },
@@ -285,7 +289,7 @@ const styles = StyleSheet.create({
   discardedText: { ...typography.bodySmall, color: '#166534', fontWeight: '500' },
   section: { marginBottom: spacing.lg },
   sectionTitle: { ...typography.label, color: colors.textTertiary, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: spacing.sm },
-  card: { backgroundColor: colors.white, borderRadius: borderRadius.lg, padding: spacing.md, ...shadows.sm },
+  card: { backgroundColor: colors.surface, borderRadius: borderRadius.lg, padding: spacing.md, ...shadows.sm },
   transcriptText: { ...typography.body, color: colors.textPrimary, lineHeight: 24 },
   extractedName: { ...typography.h3, color: colors.textPrimary, marginBottom: spacing.xs },
   confLabel: { ...typography.caption, color: colors.textTertiary },

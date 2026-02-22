@@ -1,5 +1,5 @@
 /**
- * ProAnimate Connect
+ * PeopleWallet
  * AI-Powered Relationship Intelligence Platform
  *
  * Expo entry point
