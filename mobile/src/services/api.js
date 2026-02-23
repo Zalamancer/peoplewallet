@@ -19,7 +19,7 @@ const getDevBaseUrl = () => {
 
 const API_BASE_URL = __DEV__
   ? getDevBaseUrl()
-  : 'https://api.peoplewallet.app/api'; // Replace with production URL
+  : 'https://peoplewallet-production.up.railway.app/api';
 
 const api = axios.create({
   baseURL: API_BASE_URL,

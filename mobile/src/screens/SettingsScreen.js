@@ -502,7 +502,7 @@ const SettingsScreen = ({ navigation }) => {
           value={user?.linkedin_id ? 'Connected' : 'Not connected'}
           onPress={() => {
             if (!user?.linkedin_id) {
-              Linking.openURL('http://localhost:3000/api/auth/linkedin');
+              Linking.openURL('https://peoplewallet-production.up.railway.app/api/auth/linkedin');
             }
           }}
         />

@@ -9,7 +9,7 @@ let socket = null;
  * Get the server base URL (same pattern as api.js)
  */
 const getServerUrl = () => {
-  if (!__DEV__) return 'https://api.peoplewallet.app';
+  if (!__DEV__) return 'https://peoplewallet-production.up.railway.app';
 
   const debuggerHost = Constants.expoConfig?.hostUri || Constants.manifest?.debuggerHost;
   if (debuggerHost) {
