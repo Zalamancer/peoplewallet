@@ -124,17 +124,48 @@ app.use((err, req, res, _next) => {
 // Initialize Socket.IO
 initSocket(server);
 
-// Start server
+// Run migrations then start server
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => {
-  logger.info(`PeopleWallet API running on port ${PORT}`);
-  logger.info(`Environment: ${process.env.NODE_ENV || 'development'}`);
 
-  // Start background job scheduler for notifications
-  if (process.env.ENABLE_SCHEDULER !== 'false') {
-    const { startScheduler } = require('./jobs/scheduler');
-    startScheduler();
+const { pool } = require('./config/database');
+
+const runMigrations = async () => {
+  const migrations = require('./migrations/run-list');
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS schema_migrations (
+      id SERIAL PRIMARY KEY,
+      name VARCHAR(255) UNIQUE NOT NULL,
+      executed_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+    )
+  `);
+  const result = await pool.query('SELECT name FROM schema_migrations ORDER BY id');
+  const executed = result.rows.map((r) => r.name);
+  for (const migration of migrations) {
+    if (!executed.includes(migration.name)) {
+      logger.info(`Running migration: ${migration.name}`);
+      await pool.query(migration.up);
+      await pool.query('INSERT INTO schema_migrations (name) VALUES ($1)', [migration.name]);
+      logger.info(`Migration ${migration.name} completed`);
+    }
   }
-});
+  logger.info('Migrations complete');
+};
+
+runMigrations()
+  .then(() => {
+    server.listen(PORT, () => {
+      logger.info(`PeopleWallet API running on port ${PORT}`);
+      logger.info(`Environment: ${process.env.NODE_ENV || 'development'}`);
+
+      if (process.env.ENABLE_SCHEDULER !== 'false') {
+        const { startScheduler } = require('./jobs/scheduler');
+        startScheduler();
+      }
+    });
+  })
+  .catch((err) => {
+    logger.error('Failed to run migrations:', err);
+    process.exit(1);
+  });
 
 module.exports = { app, server };
