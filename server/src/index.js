@@ -17,6 +17,7 @@ const logger = require('./utils/logger');
 initializeFirebase();
 
 const app = express();
+app.set('trust proxy', 1);
 const server = http.createServer(app);
 
 // Initialize Sentry (must be before routes)

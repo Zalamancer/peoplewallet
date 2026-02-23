@@ -164,7 +164,7 @@ const searchViaGoogleCSEPaginated = async (searchQuery, maxPages = 3) => {
         // start value out of range — no more results
         break;
       }
-      logger.error(`Google CSE page ${page + 1} error for "${searchQuery}":`, error.message, error.response?.status, JSON.stringify(error.response?.data));
+      logger.error(`Google CSE page ${page + 1} error for "${searchQuery}": ${error.message || error} | status=${error.response?.status} | data=${JSON.stringify(error.response?.data)} | code=${error.code}`);
       break;
     }
   }
