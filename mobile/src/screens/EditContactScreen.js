@@ -43,6 +43,7 @@ const EditContactScreen = ({ route, navigation }) => {
   const [fullName, setFullName] = useState(contact.full_name || '');
   const [nickname, setNickname] = useState(contact.nickname || '');
   const [pronouns, setPronouns] = useState(contact.pronouns || '');
+  const [phoneNumber, setPhoneNumber] = useState(contact.phone_number || '');
 
   // Professional
   const [school, setSchool] = useState(contact.professional?.school || '');
@@ -101,6 +102,7 @@ const EditContactScreen = ({ route, navigation }) => {
         full_name: fullName.trim(),
         nickname: nickname.trim() || null,
         pronouns: pronouns.trim() || null,
+        phone_number: phoneNumber.trim() || null,
         professional: {
           school: school.trim() || null,
           graduation_year: graduationYear.trim() || null,
@@ -198,6 +200,7 @@ const EditContactScreen = ({ route, navigation }) => {
           {activeSection === 'identity' && (
             <View style={styles.section}>
               <Input label="Full Name *" value={fullName} onChangeText={setFullName} placeholder="e.g., Sarah Chen" />
+              <Input label="Phone Number" value={phoneNumber} onChangeText={setPhoneNumber} placeholder="e.g., +1 (555) 123-4567" keyboardType="phone-pad" />
               <Input label="Nickname" value={nickname} onChangeText={setNickname} placeholder="e.g., Sar" />
               <View>
                 <Text style={styles.fieldLabel}>Gender</Text>

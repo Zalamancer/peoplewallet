@@ -16,7 +16,7 @@ router.get('/', async (req, res) => {
   try {
     const result = await query(
       `SELECT c.*, c.ranking_score, c.instagram_handle, c.is_registered, c.follower_count,
-        ucf.followed_at,
+        ucf.created_at,
         (SELECT COUNT(*)::int FROM club_memberships cm WHERE cm.club_id = c.id) AS member_count
       FROM user_club_follows ucf
       JOIN clubs c ON c.id = ucf.club_id

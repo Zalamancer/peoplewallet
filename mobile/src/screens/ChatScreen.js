@@ -11,7 +11,7 @@ import {
   ActivityIndicator,
   Alert,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { spacing, typography, borderRadius } from '../theme/colors';
 import { useTheme } from '../context/ThemeContext';
@@ -20,10 +20,12 @@ import { sendMessage, markRead, startTyping, stopTyping, getSocket } from '../se
 import { useAuth } from '../context/AuthContext';
 import { useChat } from '../context/ChatContext';
 import MessageBubble from '../components/MessageBubble';
+import GifPicker from '../components/GifPicker';
 
 const ChatScreen = ({ route, navigation }) => {
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
+  const insets = useSafeAreaInsets();
   const { conversationId, title, isGroup } = route.params;
   const { user } = useAuth();
   const { decrementUnread } = useChat();
@@ -35,6 +37,7 @@ const ChatScreen = ({ route, navigation }) => {
   const [sending, setSending] = useState(false);
   const [typingUsers, setTypingUsers] = useState([]);
   const [replyTo, setReplyTo] = useState(null);
+  const [gifPickerVisible, setGifPickerVisible] = useState(false);
   const typingTimeout = useRef(null);
   const isTypingRef = useRef(false);
   const flatListRef = useRef(null);
@@ -196,6 +199,28 @@ const ChatScreen = ({ route, navigation }) => {
     }
   };
 
+  const handleSendGif = async (gif) => {
+    try {
+      const preview = gif.images?.fixed_width;
+      const still = gif.images?.fixed_width_still;
+      await sendMessage({
+        conversationId,
+        content: gif.title || 'GIF',
+        messageType: 'gif',
+        metadata: {
+          gif_url: gif.images?.original?.url,
+          gif_preview_url: preview?.url,
+          gif_still_url: still?.url,
+          gif_width: Number(preview?.width) || 200,
+          gif_height: Number(preview?.height) || 200,
+          giphy_id: gif.id,
+        },
+      });
+    } catch (err) {
+      Alert.alert('Error', 'Failed to send GIF');
+    }
+  };
+
   const renderMessage = useCallback(
     ({ item, index }) => {
       const nextMsg = messages[index + 1];
@@ -224,7 +249,7 @@ const ChatScreen = ({ route, navigation }) => {
     : null;
 
   return (
-    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+    <SafeAreaView style={styles.container} edges={['top']}>
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
@@ -254,8 +279,8 @@ const ChatScreen = ({ route, navigation }) => {
 
       <KeyboardAvoidingView
         style={styles.flex}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top : 0}
       >
         {loading ? (
           <View style={styles.loadingContainer}>
@@ -295,7 +320,14 @@ const ChatScreen = ({ route, navigation }) => {
         )}
 
         {/* Input bar */}
-        <View style={styles.inputBar}>
+        <View style={[styles.inputBar, { paddingBottom: Math.max(spacing.sm, insets.bottom) }]}>
+          <TouchableOpacity
+            style={styles.gifButton}
+            onPress={() => setGifPickerVisible(true)}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.gifButtonText}>GIF</Text>
+          </TouchableOpacity>
           <TextInput
             style={styles.textInput}
             placeholder="Message..."
@@ -314,6 +346,12 @@ const ChatScreen = ({ route, navigation }) => {
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
+
+      <GifPicker
+        visible={gifPickerVisible}
+        onClose={() => setGifPickerVisible(false)}
+        onSelect={handleSendGif}
+      />
     </SafeAreaView>
   );
 };
@@ -410,6 +448,21 @@ const createStyles = (colors) => StyleSheet.create({
     backgroundColor: colors.surface,
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: colors.border,
+  },
+  gifButton: {
+    width: 40,
+    height: 40,
+    borderRadius: borderRadius.md,
+    borderWidth: 1.5,
+    borderColor: colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: spacing.sm,
+  },
+  gifButtonText: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: colors.textSecondary,
   },
   textInput: {
     flex: 1,

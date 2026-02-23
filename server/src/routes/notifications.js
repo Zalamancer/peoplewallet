@@ -69,6 +69,8 @@ router.get('/preferences', async (req, res) => {
         event_prep_reminders: true,
         event_prep_hours_before: 24,
         weekly_digest: true,
+        club_new_events: true,
+        event_reminders: true,
       });
     }
 
@@ -91,20 +93,24 @@ router.put('/preferences', async (req, res) => {
       event_prep_reminders,
       event_prep_hours_before,
       weekly_digest,
+      club_new_events,
+      event_reminders,
     } = req.body;
 
     const result = await query(
-      `INSERT INTO notification_preferences (user_id, decay_reminders, decay_interval_days, event_prep_reminders, event_prep_hours_before, weekly_digest)
-       VALUES ($1, $2, $3, $4, $5, $6)
+      `INSERT INTO notification_preferences (user_id, decay_reminders, decay_interval_days, event_prep_reminders, event_prep_hours_before, weekly_digest, club_new_events, event_reminders)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
        ON CONFLICT (user_id) DO UPDATE SET
          decay_reminders = COALESCE($2, notification_preferences.decay_reminders),
          decay_interval_days = COALESCE($3, notification_preferences.decay_interval_days),
          event_prep_reminders = COALESCE($4, notification_preferences.event_prep_reminders),
          event_prep_hours_before = COALESCE($5, notification_preferences.event_prep_hours_before),
          weekly_digest = COALESCE($6, notification_preferences.weekly_digest),
+         club_new_events = COALESCE($7, notification_preferences.club_new_events),
+         event_reminders = COALESCE($8, notification_preferences.event_reminders),
          updated_at = NOW()
        RETURNING *`,
-      [req.user.id, decay_reminders, decay_interval_days, event_prep_reminders, event_prep_hours_before, weekly_digest]
+      [req.user.id, decay_reminders, decay_interval_days, event_prep_reminders, event_prep_hours_before, weekly_digest, club_new_events, event_reminders]
     );
 
     res.json(result.rows[0]);

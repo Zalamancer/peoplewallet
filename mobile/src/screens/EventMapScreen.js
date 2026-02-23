@@ -1,20 +1,23 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   TouchableOpacity,
   ActivityIndicator,
-  ScrollView,
   Linking,
+  Animated,
+  ScrollView,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import MapView, { Marker, Callout } from 'react-native-maps';
+import MapView, { Marker } from 'react-native-maps';
 import { Ionicons } from '@expo/vector-icons';
 import { spacing, typography, borderRadius, shadows } from '../theme/colors';
 import { useTheme } from '../context/ThemeContext';
 import { eventFeedAPI } from '../services/api';
 import { resolveEventCoordinates, buildDirectionsUrl, UTD_CENTER } from '../utils/campusBuildings';
+
+const CARD_HEIGHT = 280;
 
 const UTD_REGION = {
   ...UTD_CENTER,
@@ -23,11 +26,11 @@ const UTD_REGION = {
 };
 
 const QUICK_FILTERS = [
-  { key: 'all', label: 'All' },
-  { key: 'free_food', label: 'Free Food' },
-  { key: 'free', label: 'Free' },
-  { key: 'on_campus', label: 'On Campus' },
-  { key: 'this_week', label: 'This Week' },
+  { key: 'all', label: 'All Events', icon: 'globe-outline' },
+  { key: 'free_food', label: 'Free Food', icon: 'restaurant-outline' },
+  { key: 'free', label: 'Free', icon: 'ticket-outline' },
+  { key: 'on_campus', label: 'On Campus', icon: 'school-outline' },
+  { key: 'this_week', label: 'This Week', icon: 'calendar-outline' },
 ];
 
 const EVENT_TYPE_COLORS = {
@@ -46,6 +49,22 @@ const EVENT_TYPE_COLORS = {
   other: '#6B7280',
 };
 
+const EVENT_TYPE_LABELS = {
+  meeting: 'Meeting',
+  workshop: 'Workshop',
+  social: 'Social',
+  info_session: 'Info Session',
+  fundraiser: 'Fundraiser',
+  competition: 'Competition',
+  performance: 'Performance',
+  study_session: 'Study Session',
+  guest_speaker: 'Guest Speaker',
+  career_fair: 'Career Fair',
+  sports: 'Sports',
+  cultural: 'Cultural',
+  other: 'Event',
+};
+
 const EventMapScreen = ({ navigation, route }) => {
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
@@ -57,6 +76,9 @@ const EventMapScreen = ({ navigation, route }) => {
   const [loading, setLoading] = useState(true);
   const [activeFilter, setActiveFilter] = useState(initialFilter);
   const [selectedEvent, setSelectedEvent] = useState(null);
+  const [filterDropdownVisible, setFilterDropdownVisible] = useState(false);
+  const cardAnim = useRef(new Animated.Value(CARD_HEIGHT + 40)).current;
+  const mapRef = useRef(null);
 
   const buildParams = useCallback(() => {
     const params = { limit: 100 };
@@ -91,7 +113,6 @@ const EventMapScreen = ({ navigation, route }) => {
     fetchEvents();
   }, [fetchEvents]);
 
-  // Resolve coordinates client-side for each event
   const mappableEvents = useMemo(() => {
     return allEvents
       .map((event) => {
@@ -133,47 +154,43 @@ const EventMapScreen = ({ navigation, route }) => {
     Linking.openURL(buildDirectionsUrl(event)).catch(() => {});
   };
 
+  const showCard = useCallback((event) => {
+    setSelectedEvent(event);
+    Animated.spring(cardAnim, {
+      toValue: 0,
+      useNativeDriver: true,
+      tension: 65,
+      friction: 11,
+    }).start();
+  }, [cardAnim]);
+
+  const dismissCard = useCallback(() => {
+    Animated.timing(cardAnim, {
+      toValue: CARD_HEIGHT + 40,
+      duration: 200,
+      useNativeDriver: true,
+    }).start(() => setSelectedEvent(null));
+  }, [cardAnim]);
+
+  const handleMarkerPress = useCallback((event) => {
+    showCard(event);
+    if (mapRef.current) {
+      mapRef.current.animateToRegion({
+        latitude: event._lat - 0.0015,
+        longitude: event._lng,
+        latitudeDelta: 0.006,
+        longitudeDelta: 0.006,
+      }, 300);
+    }
+  }, [showCard]);
+
+  const selectFilter = useCallback((key) => {
+    setActiveFilter(key);
+  }, []);
+
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color={colors.primary} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Event Map</Text>
-        <View style={styles.headerSpacer} />
-      </View>
-
-      {/* Filter Chips */}
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.chipsScroll}
-        style={styles.chipsContainer}
-      >
-        {QUICK_FILTERS.map((filter) => (
-          <TouchableOpacity
-            key={filter.key}
-            style={[
-              styles.filterChip,
-              activeFilter === filter.key && styles.filterChipActive,
-            ]}
-            onPress={() => setActiveFilter(filter.key)}
-            activeOpacity={0.7}
-          >
-            <Text
-              style={[
-                styles.filterChipText,
-                activeFilter === filter.key && styles.filterChipTextActive,
-              ]}
-            >
-              {filter.label}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </ScrollView>
-
-      {/* Map */}
+      {/* Map takes full screen */}
       <View style={styles.mapContainer}>
         {loading && (
           <View style={styles.loadingOverlay}>
@@ -181,10 +198,12 @@ const EventMapScreen = ({ navigation, route }) => {
           </View>
         )}
         <MapView
+          ref={mapRef}
           style={styles.map}
           initialRegion={UTD_REGION}
           showsUserLocation
           showsMyLocationButton
+          onPress={() => { if (selectedEvent) dismissCard(); }}
         >
           {mappableEvents.map((event) => (
             <Marker
@@ -194,76 +213,195 @@ const EventMapScreen = ({ navigation, route }) => {
                 longitude: event._lng,
               }}
               pinColor={getMarkerColor(event.event_type)}
-              onPress={() => setSelectedEvent(event)}
-            >
-              <Callout
-                tooltip
-                onPress={() => navigation.navigate('EventDetail', { eventId: event.id, source: 'feed' })}
-              >
-                <View style={styles.callout}>
-                  <Text style={styles.calloutTitle} numberOfLines={2}>
-                    {event.name}
-                  </Text>
-                  {event.club_name && (
-                    <Text style={styles.calloutClub} numberOfLines={1}>
-                      {event.club_name}
-                    </Text>
-                  )}
-                  <View style={styles.calloutDetailRow}>
-                    <Ionicons name="calendar-outline" size={12} color={colors.textTertiary} />
-                    <Text style={styles.calloutDetailText}>
-                      {formatDate(event.event_date)}
-                      {event.time_start ? ` ${formatTime(event.time_start, event.time_end)}` : ''}
-                    </Text>
-                  </View>
-                  {event.location && (
-                    <View style={styles.calloutDetailRow}>
-                      <Ionicons name="location-outline" size={12} color={colors.textTertiary} />
-                      <Text style={styles.calloutDetailText} numberOfLines={1}>
-                        {event.location}
-                      </Text>
-                    </View>
-                  )}
-                  <View style={styles.calloutBadges}>
-                    {event.food_available && (
-                      <View style={styles.calloutBadge}>
-                        <Text style={styles.calloutBadgeText}>Free Food</Text>
-                      </View>
-                    )}
-                    {event.is_free && !event.food_available && (
-                      <View style={styles.calloutBadgeFree}>
-                        <Text style={styles.calloutBadgeText}>Free</Text>
-                      </View>
-                    )}
-                  </View>
-                  <Text style={styles.calloutTap}>Tap for details</Text>
-                </View>
-              </Callout>
-            </Marker>
+              onPress={() => handleMarkerPress(event)}
+            />
           ))}
         </MapView>
 
-        {/* Event count badge */}
-        {!loading && (
-          <View style={styles.countBadge}>
-            <Text style={styles.countBadgeText}>
-              {mappableEvents.length} event{mappableEvents.length !== 1 ? 's' : ''} on map
-            </Text>
+        {/* Floating header */}
+        <View style={styles.floatingHeader}>
+          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton} activeOpacity={0.7}>
+            <Ionicons name="arrow-back" size={22} color={colors.textPrimary} />
+          </TouchableOpacity>
+        </View>
+
+        {/* Centered title pill */}
+        <View style={styles.titlePillWrapper} pointerEvents="box-none">
+          <TouchableOpacity
+            style={styles.titlePill}
+            onPress={() => setFilterDropdownVisible((v) => !v)}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.titleText}>Event Map</Text>
+            <View style={styles.countChip}>
+              <Text style={styles.countText}>{mappableEvents.length}</Text>
+            </View>
+            <Ionicons
+              name={filterDropdownVisible ? 'chevron-up' : 'chevron-down'}
+              size={16}
+              color={colors.textSecondary}
+            />
+          </TouchableOpacity>
+        </View>
+
+        {/* Filter pills row */}
+        {filterDropdownVisible && (
+          <View style={styles.filterRow}>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.filterScrollContent}
+            >
+              {QUICK_FILTERS.map((filter) => {
+                const isActive = activeFilter === filter.key;
+                return (
+                  <TouchableOpacity
+                    key={filter.key}
+                    style={[styles.filterPill, isActive && styles.filterPillActive]}
+                    onPress={() => selectFilter(filter.key)}
+                    activeOpacity={0.7}
+                  >
+                    <Ionicons
+                      name={filter.icon}
+                      size={14}
+                      color={isActive ? colors.textInverse : colors.textSecondary}
+                    />
+                    <Text style={[styles.filterPillText, isActive && styles.filterPillTextActive]}>
+                      {filter.label}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
           </View>
         )}
 
-        {/* Directions button for selected event */}
+        {/* Bottom event detail card */}
         {selectedEvent && (
-          <TouchableOpacity
-            style={styles.directionsButton}
-            onPress={() => openInMaps(selectedEvent)}
-            activeOpacity={0.8}
+          <Animated.View
+            style={[
+              styles.eventCard,
+              { transform: [{ translateY: cardAnim }] },
+            ]}
           >
-            <Ionicons name="navigate-outline" size={18} color={colors.textInverse} />
-            <Text style={styles.directionsButtonText}>Get Directions</Text>
-          </TouchableOpacity>
+            <View style={styles.cardHandle} />
+
+            <TouchableOpacity style={styles.cardClose} onPress={dismissCard} activeOpacity={0.7}>
+              <Ionicons name="close" size={20} color={colors.textTertiary} />
+            </TouchableOpacity>
+
+            <View style={styles.cardHeader}>
+              <View
+                style={[
+                  styles.typeBadge,
+                  { backgroundColor: getMarkerColor(selectedEvent.event_type) + '20' },
+                ]}
+              >
+                <View
+                  style={[
+                    styles.typeDot,
+                    { backgroundColor: getMarkerColor(selectedEvent.event_type) },
+                  ]}
+                />
+                <Text
+                  style={[
+                    styles.typeBadgeText,
+                    { color: getMarkerColor(selectedEvent.event_type) },
+                  ]}
+                >
+                  {EVENT_TYPE_LABELS[selectedEvent.event_type] || 'Event'}
+                </Text>
+              </View>
+            </View>
+
+            <Text style={styles.cardTitle} numberOfLines={2}>
+              {selectedEvent.name}
+            </Text>
+
+            {selectedEvent.club_name && (
+              <Text style={styles.cardClub} numberOfLines={1}>
+                {selectedEvent.club_name}
+              </Text>
+            )}
+
+            <View style={styles.cardDetails}>
+              {selectedEvent.event_date && (
+                <View style={styles.cardDetailRow}>
+                  <Ionicons name="calendar-outline" size={16} color={colors.primary} />
+                  <Text style={styles.cardDetailText}>
+                    {formatDate(selectedEvent.event_date)}
+                    {selectedEvent.time_start
+                      ? `  ·  ${formatTime(selectedEvent.time_start, selectedEvent.time_end)}`
+                      : ''}
+                  </Text>
+                </View>
+              )}
+
+              {(selectedEvent.location || selectedEvent.location_building) && (
+                <View style={styles.cardDetailRow}>
+                  <Ionicons name="location-outline" size={16} color={colors.primary} />
+                  <Text style={styles.cardDetailText} numberOfLines={1}>
+                    {[selectedEvent.location, selectedEvent.location_building]
+                      .filter(Boolean)
+                      .join(' · ')}
+                  </Text>
+                </View>
+              )}
+            </View>
+
+            <View style={styles.cardBadges}>
+              {selectedEvent.food_available && (
+                <View style={[styles.badge, { backgroundColor: colors.success + '15' }]}>
+                  <Ionicons name="restaurant-outline" size={12} color={colors.success} />
+                  <Text style={[styles.badgeText, { color: colors.success }]}>Free Food</Text>
+                </View>
+              )}
+              {selectedEvent.is_free && (
+                <View style={[styles.badge, { backgroundColor: colors.accent + '15' }]}>
+                  <Ionicons name="ticket-outline" size={12} color={colors.accent} />
+                  <Text style={[styles.badgeText, { color: colors.accent }]}>Free</Text>
+                </View>
+              )}
+              {selectedEvent.is_on_campus && (
+                <View style={[styles.badge, { backgroundColor: colors.primary + '15' }]}>
+                  <Ionicons name="school-outline" size={12} color={colors.primary} />
+                  <Text style={[styles.badgeText, { color: colors.primary }]}>On Campus</Text>
+                </View>
+              )}
+            </View>
+
+            {selectedEvent.description && (
+              <Text style={styles.cardDescription} numberOfLines={2}>
+                {selectedEvent.description}
+              </Text>
+            )}
+
+            <View style={styles.cardActions}>
+              <TouchableOpacity
+                style={styles.viewDetailsButton}
+                onPress={() => {
+                  dismissCard();
+                  navigation.navigate('EventDetail', { eventId: selectedEvent.id, source: 'feed' });
+                }}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="open-outline" size={16} color={colors.textInverse} />
+                <Text style={styles.viewDetailsText}>View Details</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.directionsButton}
+                onPress={() => openInMaps(selectedEvent)}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="navigate-outline" size={16} color={colors.primary} />
+                <Text style={styles.directionsButtonText}>Directions</Text>
+              </TouchableOpacity>
+            </View>
+          </Animated.View>
         )}
       </View>
+
     </SafeAreaView>
   );
 };
@@ -273,60 +411,10 @@ const createStyles = (colors) => StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
   },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-  },
-  backButton: {
-    padding: spacing.sm,
-  },
-  headerTitle: {
-    ...typography.h3,
-    color: colors.textPrimary,
-    flex: 1,
-    textAlign: 'center',
-    marginHorizontal: spacing.sm,
-  },
-  headerSpacer: {
-    width: 40,
-  },
-
-  // Filter chips
-  chipsContainer: {
-    maxHeight: 44,
-  },
-  chipsScroll: {
-    paddingHorizontal: spacing.md,
-    gap: spacing.sm,
-  },
-  filterChip: {
-    paddingHorizontal: 14,
-    paddingVertical: 7,
-    borderRadius: borderRadius.full,
-    backgroundColor: colors.tagBg,
-    borderWidth: 1,
-    borderColor: colors.tagBorder,
-  },
-  filterChipActive: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
-  },
-  filterChipText: {
-    ...typography.caption,
-    fontWeight: '500',
-    color: colors.tagText,
-  },
-  filterChipTextActive: {
-    color: colors.textInverse,
-  },
 
   // Map
   mapContainer: {
     flex: 1,
-    marginTop: spacing.sm,
     position: 'relative',
   },
   map: {
@@ -340,106 +428,243 @@ const createStyles = (colors) => StyleSheet.create({
     zIndex: 10,
   },
 
-  // Callout
-  callout: {
-    backgroundColor: colors.surface,
-    borderRadius: borderRadius.lg,
-    padding: spacing.md,
-    minWidth: 200,
-    maxWidth: 280,
-    ...shadows.md,
-    borderWidth: 1,
-    borderColor: colors.borderLight,
-  },
-  calloutTitle: {
-    ...typography.h3,
-    fontSize: 14,
-    color: colors.textPrimary,
-    marginBottom: 4,
-  },
-  calloutClub: {
-    ...typography.caption,
-    color: colors.textSecondary,
-    fontWeight: '600',
-    marginBottom: 6,
-  },
-  calloutDetailRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    marginBottom: 2,
-  },
-  calloutDetailText: {
-    ...typography.caption,
-    color: colors.textTertiary,
-    flex: 1,
-  },
-  calloutBadges: {
-    flexDirection: 'row',
-    gap: 4,
-    marginTop: 6,
-  },
-  calloutBadge: {
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: borderRadius.full,
-    backgroundColor: colors.success + '15',
-  },
-  calloutBadgeFree: {
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: borderRadius.full,
-    backgroundColor: colors.accent + '15',
-  },
-  calloutBadgeText: {
-    fontSize: 10,
-    fontWeight: '600',
-    color: colors.success,
-  },
-  calloutTap: {
-    ...typography.caption,
-    fontSize: 10,
-    color: colors.primary,
-    textAlign: 'center',
-    marginTop: 6,
-  },
-
-  // Count badge
-  countBadge: {
+  // Floating header
+  floatingHeader: {
     position: 'absolute',
     top: spacing.sm,
+    left: spacing.md,
     right: spacing.md,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  backButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     backgroundColor: colors.surface,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: borderRadius.full,
+    justifyContent: 'center',
+    alignItems: 'center',
     ...shadows.sm,
     borderWidth: 1,
     borderColor: colors.borderLight,
   },
-  countBadgeText: {
-    ...typography.caption,
-    fontWeight: '600',
-    color: colors.textSecondary,
-  },
-
-  // Directions button
-  directionsButton: {
+  titlePillWrapper: {
     position: 'absolute',
-    bottom: spacing.xl,
-    alignSelf: 'center',
+    top: spacing.sm,
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+    zIndex: 1,
+  },
+  titlePill: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.primary,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
+    backgroundColor: colors.surface,
+    paddingHorizontal: 14,
+    paddingVertical: 9,
     borderRadius: borderRadius.full,
+    gap: 8,
+    ...shadows.sm,
+    borderWidth: 1,
+    borderColor: colors.borderLight,
+  },
+  titleText: {
+    ...typography.body,
+    fontWeight: '600',
+    color: colors.textPrimary,
+    fontSize: 15,
+  },
+  countChip: {
+    backgroundColor: colors.primary,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 10,
+    minWidth: 24,
+    alignItems: 'center',
+  },
+  countText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+
+  // Filter pills row
+  filterRow: {
+    position: 'absolute',
+    top: spacing.sm + 48,
+    left: 0,
+    right: 0,
+  },
+  filterScrollContent: {
+    paddingHorizontal: spacing.md,
+    gap: 8,
+  },
+  filterPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.surface,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: borderRadius.full,
+    gap: 6,
+    ...shadows.sm,
+    borderWidth: 1,
+    borderColor: colors.borderLight,
+  },
+  filterPillActive: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  filterPillText: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: colors.textSecondary,
+  },
+  filterPillTextActive: {
+    color: colors.textInverse,
+  },
+
+  // Event detail card
+  eventCard: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: colors.surface,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingHorizontal: spacing.lg,
+    paddingBottom: spacing.xl,
+    paddingTop: spacing.sm,
+    ...shadows.lg,
+    borderWidth: 1,
+    borderBottomWidth: 0,
+    borderColor: colors.borderLight,
+  },
+  cardHandle: {
+    width: 36,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: colors.borderLight,
+    alignSelf: 'center',
+    marginBottom: spacing.sm,
+  },
+  cardClose: {
+    position: 'absolute',
+    top: spacing.sm,
+    right: spacing.md,
+    padding: spacing.xs,
+    zIndex: 1,
+  },
+  cardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  typeBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: borderRadius.full,
+    gap: 5,
+  },
+  typeDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 4,
+  },
+  typeBadgeText: {
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  cardTitle: {
+    ...typography.h3,
+    color: colors.textPrimary,
+    marginBottom: 2,
+    paddingRight: 28,
+  },
+  cardClub: {
+    ...typography.caption,
+    color: colors.textSecondary,
+    fontWeight: '600',
+    marginBottom: 8,
+  },
+  cardDetails: {
+    gap: 6,
+    marginBottom: 8,
+  },
+  cardDetailRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  cardDetailText: {
+    ...typography.body,
+    fontSize: 13,
+    color: colors.textSecondary,
+    flex: 1,
+  },
+  cardBadges: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginBottom: 8,
+  },
+  badge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: borderRadius.full,
+    gap: 4,
+  },
+  badgeText: {
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  cardDescription: {
+    ...typography.body,
+    fontSize: 13,
+    color: colors.textTertiary,
+    lineHeight: 18,
+    marginBottom: 12,
+  },
+  cardActions: {
+    flexDirection: 'row',
     gap: spacing.sm,
-    ...shadows.md,
+  },
+  viewDetailsButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.primary,
+    paddingVertical: 11,
+    borderRadius: borderRadius.lg,
+    gap: 6,
+  },
+  viewDetailsText: {
+    ...typography.button,
+    color: colors.textInverse,
+    fontSize: 14,
+  },
+  directionsButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.surface,
+    paddingVertical: 11,
+    borderRadius: borderRadius.lg,
+    borderWidth: 1.5,
+    borderColor: colors.primary,
+    gap: 6,
   },
   directionsButtonText: {
     ...typography.button,
-    color: colors.textInverse,
+    color: colors.primary,
+    fontSize: 14,
   },
 });
 

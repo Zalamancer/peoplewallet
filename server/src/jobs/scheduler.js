@@ -86,8 +86,9 @@ const startScheduler = () => {
     runJob('embed-refresh', refreshExpiredEmbeds);
   }, 24 * HOUR_MS);
 
-  // Club Discovery — 1st Sunday of each month at 2 AM CT (conserves Google CSE free tier: 100 req/day)
-  // Uses 3 Google CSE calls + up to 5 Claude Haiku calls per run
+  // Club Discovery — 1st Sunday of each month at 2 AM CT
+  // Iterates all schools with conservative budget (10 queries each)
+  // For full first-run discovery, use POST /api/admin/run-discovery
   setInterval(() => {
     const now = new Date();
     const ctNow = new Date(now.toLocaleString('en-US', { timeZone: 'America/Chicago' }));

@@ -3,6 +3,7 @@ const logger = require('../utils/logger');
 const axios = require('axios');
 const { extractTextFromImages, assessOcrQuality, downloadImagesAsBase64 } = require('./ocr-service');
 const { geocodeEventLocation } = require('./campus-geocoder');
+const { notifyClubFollowers } = require('./notifications');
 
 /**
  * Event Analyzer Service — Pipeline 3
@@ -385,6 +386,17 @@ const analyzePost = async (postId) => {
       "UPDATE posts SET ai_analysis_status = 'analyzed' WHERE id = $1",
       [postId]
     );
+
+    // Non-blocking: notify followers of the club about new events
+    if (post.club_id && eventIds.length > 0) {
+      const createdEvents = eventIds.map((id, i) => ({
+        id,
+        event_name: detectedEvents[i]?.event_name,
+        name: detectedEvents[i]?.event_name,
+      }));
+      notifyClubFollowers(post.club_id, post.club_name, createdEvents)
+        .catch((err) => logger.warn('Club follower notification failed:', err.message));
+    }
 
     logger.info(`Post ${postId}: ${eventIds.length} event(s) created`);
     return { is_event: true, event_id: eventIds[0], event_ids: eventIds, confidence: detectedEvents[0].confidence };

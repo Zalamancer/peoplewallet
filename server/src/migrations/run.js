@@ -20,6 +20,11 @@ const migration016 = require('./016_post_ocr_text');
 const migration017 = require('./017_discord_groupme_social');
 const migration018 = require('./018_event_coordinates');
 const migration019 = require('./019_message_type_cards');
+const migration020 = require('./020_club_notification_prefs');
+const migration021 = require('./021_email_verification');
+const migration022 = require('./022_contact_phone_numbers');
+const migration023 = require('./023_discovery_v2');
+const migration024 = require('./024_gif_message_type');
 
 const migrations = [
   { name: '001_initial_schema', ...migration001 },
@@ -41,6 +46,11 @@ const migrations = [
   { name: '017_discord_groupme_social', ...migration017 },
   { name: '018_event_coordinates', ...migration018 },
   { name: '019_message_type_cards', ...migration019 },
+  { name: '020_club_notification_prefs', ...migration020 },
+  { name: '021_email_verification', ...migration021 },
+  { name: '022_contact_phone_numbers', ...migration022 },
+  { name: '023_discovery_v2', ...migration023 },
+  { name: '024_gif_message_type', ...migration024 },
 ];
 
 const createMigrationsTable = async () => {

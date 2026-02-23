@@ -17,34 +17,38 @@ const PLATFORMS = ['linkedin', 'instagram', 'twitter'];
 /**
  * Platform-specific embed URL generators
  */
+/**
+ * Extract a clean LinkedIn profile URL from a handle or URL.
+ * Handles cases where a full URL is stored as the handle.
+ */
+const cleanLinkedInUrl = (handleOrUrl) => {
+  if (!handleOrUrl) return null;
+  // If it contains a full LinkedIn /in/ URL anywhere, extract the vanity
+  const match = handleOrUrl.match(/linkedin\.com\/in\/([^/?#\s]+)/);
+  if (match) return `https://www.linkedin.com/in/${match[1]}`;
+  // Strip @ prefix
+  const clean = handleOrUrl.replace(/^@/, '');
+  // If it looks like a URL already, return as-is
+  if (clean.startsWith('http')) return clean;
+  return `https://www.linkedin.com/in/${clean}`;
+};
+
 const getEmbedUrl = (platform, handle, url) => {
   switch (platform) {
     case 'linkedin':
-      // LinkedIn public profile embed
-      if (url) return `https://www.linkedin.com/in/${extractLinkedInVanity(url)}`;
-      return handle ? `https://www.linkedin.com/in/${handle}` : null;
+      return cleanLinkedInUrl(handle) || cleanLinkedInUrl(url);
 
     case 'instagram':
-      // Instagram embed URL for profile
       if (handle) return `https://www.instagram.com/${handle.replace('@', '')}/`;
       return url || null;
 
     case 'twitter':
-      // Twitter/X embed URL for profile
       if (handle) return `https://twitter.com/${handle.replace('@', '')}`;
       return url || null;
 
     default:
       return url || null;
   }
-};
-
-/**
- * Extract LinkedIn vanity name from URL
- */
-const extractLinkedInVanity = (url) => {
-  const match = url.match(/linkedin\.com\/in\/([^/?#]+)/);
-  return match ? match[1] : url;
 };
 
 /**
@@ -123,7 +127,7 @@ const buildSocialFeedItems = (contact, socialLinks) => {
       contact_id: contact.id,
       platform: social.platform,
       content_type: 'post',
-      content_url: social.url || embedUrl,
+      content_url: embedUrl,
       embed_url: embedUrl,
       title: `${contact.full_name} on ${getPlatformDisplayName(social.platform)}`,
       summary: social.handle
@@ -366,6 +370,46 @@ const getEventFeedItems = async (userId) => {
 };
 
 /**
+ * Fetch club post feed items.
+ * Returns all club posts joined with their club info.
+ *
+ * @returns {Array} Array of club post feed items
+ */
+const getClubPostItems = async () => {
+  const result = await query(
+    `SELECT p.id, p.post_url, p.image_urls, p.caption, p.posted_at,
+            p.likes_count, p.comments_count,
+            c.id AS club_id, c.name AS club_name, c.profile_image_url,
+            c.category, c.instagram_handle
+     FROM posts p
+     JOIN clubs c ON c.id = p.club_id
+     ORDER BY p.posted_at DESC NULLS LAST
+     LIMIT 100`
+  );
+
+  return result.rows.map((row) => ({
+    contact_id: null,
+    platform: 'club',
+    content_type: 'club_post',
+    content_url: row.post_url,
+    embed_url: null,
+    title: row.club_name,
+    summary: row.caption ? row.caption.slice(0, 200) : '',
+    image_url: row.profile_image_url,
+    thumbnail_url: row.image_urls?.[0] || null,
+    fetched_at: row.posted_at,
+    contact_name: row.club_name,
+    contact_avatar: row.profile_image_url,
+    club_id: row.club_id,
+    club_name: row.club_name,
+    category: row.category,
+    instagram_handle: row.instagram_handle,
+    likes_count: row.likes_count,
+    comments_count: row.comments_count,
+  }));
+};
+
+/**
  * Get paginated feed for a user
  * Aggregates social activity from all saved contacts
  * and event activity (RSVPs, check-ins, co-attendance)
@@ -408,21 +452,28 @@ const getFeed = async (userId, page = 1, limit = 20) => {
       return [];
     });
 
-    if (eventItems.length === 0) {
+    const clubItems = await getClubPostItems().catch((err) => {
+      logger.error('Failed to fetch club post items:', err);
+      return [];
+    });
+
+    const earlyItems = [...eventItems, ...clubItems];
+
+    if (earlyItems.length === 0) {
       return {
         items: [],
         pagination: { total: 0, page, limit, totalPages: 0 },
       };
     }
 
-    // Sort and paginate event items only
-    eventItems.sort((a, b) => new Date(b.fetched_at) - new Date(a.fetched_at));
-    const total = eventItems.length;
+    // Sort and paginate event + club items only
+    earlyItems.sort((a, b) => new Date(b.fetched_at) - new Date(a.fetched_at));
+    const total = earlyItems.length;
     const totalPages = Math.ceil(total / limit);
-    const paginatedItems = eventItems.slice(offset, offset + limit);
+    const paginatedItems = earlyItems.slice(offset, offset + limit);
     const itemsWithIds = paginatedItems.map((item, index) => ({
       ...item,
-      feed_id: `event-${item.content_type}-${offset + index}`,
+      feed_id: item.club_id ? `club-${item.club_id}-${offset + index}` : `event-${item.content_type}-${offset + index}`,
     }));
     return { items: itemsWithIds, pagination: { total, page, limit, totalPages } };
   }
@@ -526,11 +577,21 @@ const getFeed = async (userId, page = 1, limit = 20) => {
 
   allItems.push(...eventItems);
 
-  // Sort by fetched_at (most recent first), then by contact updated_at
+  // Fetch club post items
+  const clubItems = await getClubPostItems(userId).catch((err) => {
+    logger.error('Failed to fetch club post items:', err);
+    return [];
+  });
+
+  allItems.push(...clubItems);
+
+  // Sort: past events sink to the bottom, everything else by recency
+  const now = new Date();
   allItems.sort((a, b) => {
-    const dateA = new Date(a.fetched_at);
-    const dateB = new Date(b.fetched_at);
-    return dateB - dateA;
+    const aIsPastEvent = a.platform === 'event' && a.event_date && new Date(a.event_date) < now;
+    const bIsPastEvent = b.platform === 'event' && b.event_date && new Date(b.event_date) < now;
+    if (aIsPastEvent !== bIsPastEvent) return aIsPastEvent ? 1 : -1;
+    return new Date(b.fetched_at) - new Date(a.fetched_at);
   });
 
   // Paginate
@@ -541,7 +602,7 @@ const getFeed = async (userId, page = 1, limit = 20) => {
   // Add a unique feed item ID for the client
   const itemsWithIds = paginatedItems.map((item, index) => ({
     ...item,
-    feed_id: item.id || `${item.contact_id || 'event'}-${item.platform}-${item.content_type}-${offset + index}`,
+    feed_id: item.id || `${item.contact_id || item.club_id || 'event'}-${item.platform}-${item.content_type}-${offset + index}`,
   }));
 
   return {

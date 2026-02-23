@@ -1,6 +1,7 @@
 require('dotenv').config({ override: true });
 
 const http = require('http');
+const path = require('path');
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
@@ -21,8 +22,13 @@ const server = http.createServer(app);
 // Initialize Sentry (must be before routes)
 initSentry(app);
 
-// Security middleware
-app.use(helmet());
+// Security middleware — relax CSP for legal pages (they use inline styles)
+app.use((req, res, next) => {
+  if (req.path.startsWith('/legal')) {
+    return helmet({ contentSecurityPolicy: false })(req, res, next);
+  }
+  return helmet()(req, res, next);
+});
 app.use(cors({
   origin: process.env.NODE_ENV === 'production'
     ? process.env.ALLOWED_ORIGINS?.split(',')
@@ -50,6 +56,9 @@ app.use(compression());
 app.use(morgan('combined', {
   stream: { write: (message) => logger.info(message.trim()) },
 }));
+
+// Serve static files (legal pages, etc.)
+app.use(express.static(path.join(__dirname, '..', 'public')));
 
 // Health check
 app.get('/health', (req, res) => {

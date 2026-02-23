@@ -140,8 +140,8 @@ router.get('/:id', async (req, res) => {
 
     const club = clubResult.rows[0];
 
-    // Fetch members, upcoming events (sorted by feed_score), and user's role in parallel
-    const [membersResult, upcomingEventsResult, userRoleResult] = await Promise.all([
+    // Fetch members, upcoming events (sorted by feed_score), user's role, and follow status in parallel
+    const [membersResult, upcomingEventsResult, userRoleResult, followResult] = await Promise.all([
       query(
         `SELECT cm.user_id, cm.role, cm.joined_at, u.name AS display_name, u.avatar_url
          FROM club_memberships cm
@@ -160,6 +160,10 @@ router.get('/:id', async (req, res) => {
         'SELECT role FROM club_memberships WHERE club_id = $1 AND user_id = $2',
         [req.params.id, req.user.id]
       ),
+      query(
+        'SELECT 1 FROM user_club_follows WHERE user_id = $1 AND club_id = $2',
+        [req.user.id, req.params.id]
+      ),
     ]);
 
     res.json({
@@ -169,6 +173,7 @@ router.get('/:id', async (req, res) => {
       upcoming_events: upcomingEventsResult.rows,
       upcoming_events_count: upcomingEventsResult.rows.length,
       user_role: userRoleResult.rows.length > 0 ? userRoleResult.rows[0].role : null,
+      is_following: followResult.rows.length > 0,
     });
   } catch (error) {
     logger.error('Get club error:', error);

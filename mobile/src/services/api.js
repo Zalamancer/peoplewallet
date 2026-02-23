@@ -68,6 +68,9 @@ export const authAPI = {
   updateProfile: (data) => api.put('/auth/me', data),
   getLinkedInAuthUrl: (returnUrl) => api.get('/auth/linkedin', { params: { returnUrl } }),
   getPublicProfile: (userId) => api.get(`/auth/users/${userId}/profile`),
+  sendVerification: (data) => api.post('/auth/send-verification', data),
+  verifyEmail: (data) => api.post('/auth/verify-email', data),
+  deleteAccount: () => api.delete('/auth/me'),
 };
 
 // Contacts API
@@ -83,6 +86,7 @@ export const contactsAPI = {
   toggleShare: (id, shareEnabled) => api.put(`/contacts/${id}/share`, { share_enabled: shareEnabled }),
   confirmLink: (id, linkedUserId) => api.post(`/contacts/${id}/link`, { linked_user_id: linkedUserId }),
   dismissLink: (id) => api.post(`/contacts/${id}/unlink`),
+  bulkImport: (contacts) => api.post('/contacts/bulk-import', { contacts }),
 };
 
 // LinkedIn API

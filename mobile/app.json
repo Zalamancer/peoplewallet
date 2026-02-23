@@ -29,7 +29,9 @@
       },
       "package": "com.peoplewallet.app",
       "permissions": [
-        "RECORD_AUDIO"
+        "RECORD_AUDIO",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.MODIFY_AUDIO_SETTINGS"
       ]
     },
     "web": {
@@ -44,6 +46,12 @@
       ],
       "@react-native-community/datetimepicker"
     ],
-    "extra": {}
+    "extra": {
+      "giphyApiKey": "xe5xAcrlPRn28VCMxvjngnNuiFUffupx",
+      "eas": {
+        "projectId": "49722b50-e850-4f07-8764-2a22e6bfb9ef"
+      }
+    },
+    "owner": "ihsanduru"
   }
 }

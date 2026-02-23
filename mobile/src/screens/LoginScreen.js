@@ -7,9 +7,11 @@ import {
   KeyboardAvoidingView,
   Platform,
   Alert,
+  Linking as RNLinking,
 } from 'react-native';
 import * as WebBrowser from 'expo-web-browser';
 import * as Linking from 'expo-linking';
+import { Ionicons } from '@expo/vector-icons';
 import { spacing, typography, borderRadius } from '../theme/colors';
 import { useTheme } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext';
@@ -17,7 +19,7 @@ import { authAPI } from '../services/api';
 import Button from '../components/Button';
 import Input from '../components/Input';
 
-const LoginScreen = () => {
+const LoginScreen = ({ navigation }) => {
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const { login, register, loginWithLinkedIn, loading, error, clearError } = useAuth();
@@ -184,6 +186,26 @@ const LoginScreen = () => {
           />
 
           <Button
+            title="Sign Up with School Email"
+            onPress={() => navigation.navigate('SchoolVerify', { mode: 'signup' })}
+            variant="outline"
+            fullWidth
+            size="lg"
+            icon={<Ionicons name="school-outline" size={20} color={colors.primary} />}
+            style={styles.schoolButton}
+          />
+
+          <Text style={styles.legalText}>
+            By continuing, you agree to our{' '}
+            <Text style={styles.legalLink} onPress={() => RNLinking.openURL('https://peoplewallet.app/legal/terms-of-service.html')}>
+              Terms of Service
+            </Text>{' '}and{' '}
+            <Text style={styles.legalLink} onPress={() => RNLinking.openURL('https://peoplewallet.app/legal/privacy-policy.html')}>
+              Privacy Policy
+            </Text>.
+          </Text>
+
+          <Button
             title={isRegister ? 'Already have an account? Sign In' : "Don't have an account? Sign Up"}
             onPress={() => {
               setIsRegister(!isRegister);
@@ -258,6 +280,9 @@ const createStyles = (colors) => StyleSheet.create({
     fontWeight: '800',
     fontSize: 18,
   },
+  schoolButton: {
+    marginTop: spacing.sm,
+  },
   switchButton: {
     marginTop: spacing.md,
   },
@@ -266,6 +291,17 @@ const createStyles = (colors) => StyleSheet.create({
     color: colors.error,
     marginBottom: spacing.sm,
     textAlign: 'center',
+  },
+  legalText: {
+    ...typography.caption,
+    color: colors.textTertiary,
+    textAlign: 'center',
+    marginTop: spacing.md,
+    lineHeight: 18,
+  },
+  legalLink: {
+    color: colors.primary,
+    textDecorationLine: 'underline',
   },
 });
 

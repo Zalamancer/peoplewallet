@@ -20,6 +20,7 @@ import AddToGroupModal from '../components/AddToGroupModal';
 import ShareToChatModal from '../components/ShareToChatModal';
 import { Ionicons } from '@expo/vector-icons';
 import { SocialIcon, getSocialLabel } from '../components/SocialIcon';
+import * as SMS from 'expo-sms';
 
 const ContactDetailScreen = ({ route, navigation }) => {
   const { colors } = useTheme();
@@ -168,6 +169,15 @@ const ContactDetailScreen = ({ route, navigation }) => {
     } catch (error) {
       console.warn('Failed to toggle favorite:', error?.message);
     }
+  };
+
+  const handleSendSMS = async () => {
+    const isAvailable = await SMS.isAvailableAsync();
+    if (!isAvailable) {
+      Alert.alert('SMS not available', 'SMS is not available on this device.');
+      return;
+    }
+    await SMS.sendSMSAsync([contact.phone_number], '');
   };
 
   if (loading) {
@@ -321,6 +331,13 @@ const ContactDetailScreen = ({ route, navigation }) => {
             })
           }
         />
+
+        {/* Phone Number */}
+        {contact.phone_number && (
+          <SectionCard title="Phone">
+            <InfoRow label="Number" value={contact.phone_number} />
+          </SectionCard>
+        )}
 
         {/* Professional Info */}
         {contact.professional && (
@@ -549,6 +566,14 @@ const ContactDetailScreen = ({ route, navigation }) => {
 
         {/* Actions */}
         <View style={styles.actions}>
+          {contact.phone_number && !contact.linked_user_id && (
+            <Button
+              title="Send SMS"
+              onPress={handleSendSMS}
+              icon={<Ionicons name="chatbubble-ellipses-outline" size={18} color={colors.textInverse} />}
+              fullWidth
+            />
+          )}
           <Button
             title="Share to Chat"
             onPress={() => setShowShareChat(true)}

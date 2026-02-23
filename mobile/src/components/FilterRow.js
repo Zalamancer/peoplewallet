@@ -13,6 +13,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { spacing, typography, borderRadius } from '../theme/colors';
 import { useTheme } from '../context/ThemeContext';
+import { LinearGradient } from 'expo-linear-gradient';
 import Tag from './Tag';
 
 const SCREEN_HEIGHT = Dimensions.get('window').height;
@@ -121,21 +122,30 @@ const FilterRow = ({
         {activeCount > 0 && <View style={styles.activeDot} />}
       </TouchableOpacity>
 
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.pills}
-      >
-        {filters.map((filter) => (
-          <Tag
-            key={filter.key}
-            label={filter.label}
-            selected={activeFilter === filter.key}
-            onPress={() => onFilterChange(filter.key)}
-            variant={activeFilter === filter.key ? 'primary' : 'default'}
-          />
-        ))}
-      </ScrollView>
+      <View style={styles.pillsWrapper}>
+        <LinearGradient
+          colors={[colors.background, colors.background + '00']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
+          style={styles.pillsFade}
+          pointerEvents="none"
+        />
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.pills}
+        >
+          {filters.map((filter) => (
+            <Tag
+              key={filter.key}
+              label={filter.label}
+              selected={activeFilter === filter.key}
+              onPress={() => onFilterChange(filter.key)}
+              variant={activeFilter === filter.key ? 'primary' : 'default'}
+            />
+          ))}
+        </ScrollView>
+      </View>
 
       {/* Advanced Filters Modal */}
       {hasAdvanced && (
@@ -261,9 +271,22 @@ const createStyles = (colors) => StyleSheet.create({
     borderRadius: 4,
     backgroundColor: colors.primary,
   },
+  pillsWrapper: {
+    flex: 1,
+    position: 'relative',
+  },
+  pillsFade: {
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    bottom: 0,
+    width: 16,
+    zIndex: 1,
+  },
   pills: {
     flexDirection: 'row',
     gap: spacing.sm,
+    paddingLeft: 6,
     paddingRight: spacing.md,
   },
 

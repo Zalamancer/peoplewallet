@@ -47,6 +47,13 @@ const CaptureModeSelector = ({ navigation, onClose }) => {
       params: { source: 'linkedin' },
     },
     {
+      key: 'phone-import',
+      icon: 'phone-portrait-outline',
+      title: 'From Phone',
+      description: 'Import contacts from your address book',
+      screen: 'ImportContacts',
+    },
+    {
       key: 'quick-add',
       icon: 'flash-outline',
       title: 'Quick Add',

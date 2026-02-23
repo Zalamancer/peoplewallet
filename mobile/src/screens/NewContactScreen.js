@@ -38,6 +38,7 @@ const NewContactScreen = ({ navigation, route }) => {
   const [fullName, setFullName] = useState(prefilled.name?.full_name || prefilled.full_name || '');
   const [nickname, setNickname] = useState(prefilled.name?.nickname || prefilled.nickname || '');
   const [pronouns, setPronouns] = useState(prefilled.name?.pronouns || prefilled.pronouns || '');
+  const [phoneNumber, setPhoneNumber] = useState(prefilled.phone_number || '');
 
   // Professional
   const [school, setSchool] = useState(prefilled.professional?.school || '');
@@ -228,6 +229,7 @@ const NewContactScreen = ({ navigation, route }) => {
         full_name: fullName.trim(),
         nickname: nickname.trim() || undefined,
         pronouns: pronouns.trim() || undefined,
+        phone_number: phoneNumber.trim() || undefined,
         source,
         professional: {
           school: school.trim() || undefined,
@@ -384,6 +386,13 @@ const NewContactScreen = ({ navigation, route }) => {
                 placeholder="e.g., Sarah Chen"
                 autoCapitalize="words"
                 confidenceStatus={getConfidence('name', 'full_name')}
+              />
+              <Input
+                label="Phone Number"
+                value={phoneNumber}
+                onChangeText={setPhoneNumber}
+                placeholder="e.g., +1 (555) 123-4567"
+                keyboardType="phone-pad"
               />
               <Input
                 label="Nickname"

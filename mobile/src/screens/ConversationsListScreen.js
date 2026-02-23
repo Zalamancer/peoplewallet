@@ -64,6 +64,8 @@ const ConversationItem = ({ item, userId, onPress }) => {
       preview = `${prefix}Sent a photo`;
     } else if (lastMsg.message_type === 'contact_card') {
       preview = `${prefix}Shared a contact`;
+    } else if (lastMsg.message_type === 'gif') {
+      preview = `${prefix}Sent a GIF`;
     } else {
       preview = `${prefix}${lastMsg.content || ''}`;
     }

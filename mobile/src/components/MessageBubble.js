@@ -83,7 +83,40 @@ const MessageBubble = ({ message, isOwn, showSenderName, onLongPress, onReplyPre
     );
   };
 
+  const isGif = message.message_type === 'gif';
   const isCardType = ['event_card', 'club_card', 'post_card', 'contact_card'].includes(message.message_type);
+
+  if (isGif) {
+    const meta = message.metadata || {};
+    const gifWidth = Number(meta.gif_width) || 200;
+    const gifHeight = Number(meta.gif_height) || 200;
+    const gifAspect = gifWidth / gifHeight;
+    const displayWidth = Math.min(gifWidth, 220);
+    const displayHeight = displayWidth / gifAspect;
+    return (
+      <TouchableOpacity
+        style={[styles.bubbleRow, isOwn && styles.bubbleRowOwn]}
+        onLongPress={() => onLongPress?.(message)}
+        activeOpacity={0.8}
+        delayLongPress={300}
+      >
+        <View style={styles.gifContainer}>
+          {showSenderName && !isOwn && (
+            <Text style={styles.senderName}>{message.sender_name}</Text>
+          )}
+          <Image
+            source={{ uri: meta.gif_preview_url || meta.gif_url }}
+            style={[styles.gifImage, { width: displayWidth, height: displayHeight }]}
+            resizeMode="cover"
+          />
+          <View style={styles.gifMeta}>
+            <Text style={styles.gifAttribution}>via GIPHY</Text>
+            <Text style={styles.time}>{formatTime(message.created_at)}</Text>
+          </View>
+        </View>
+      </TouchableOpacity>
+    );
+  }
 
   const renderContent = () => {
     const meta = message.metadata || {};
@@ -382,6 +415,26 @@ const createStyles = (colors) => StyleSheet.create({
   replyContent: {
     fontSize: 12,
     color: colors.textSecondary,
+  },
+
+  // GIF message
+  gifContainer: {
+    maxWidth: '78%',
+  },
+  gifImage: {
+    borderRadius: borderRadius.md,
+    backgroundColor: colors.borderLight,
+  },
+  gifMeta: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 2,
+    paddingHorizontal: 2,
+  },
+  gifAttribution: {
+    fontSize: 9,
+    color: colors.textTertiary,
   },
 
   // Image message

@@ -34,7 +34,7 @@ const fetchPostViaApify = async (handle) => {
       'https://api.apify.com/v2/acts/apify~instagram-scraper/runs',
       {
         directUrls: [`https://www.instagram.com/${handle}/`],
-        resultsLimit: 1,
+        resultsLimit: 12,
         resultsType: 'posts',
       },
       {
@@ -90,9 +90,7 @@ const fetchPostViaApify = async (handle) => {
       return null;
     }
 
-    const post = items[0];
-
-    return {
+    return items.map((post) => ({
       post_id: post.id || post.shortCode || null,
       post_url: post.url || (post.shortCode ? `https://www.instagram.com/p/${post.shortCode}/` : null),
       image_urls: post.images || (post.displayUrl ? [post.displayUrl] : []),
@@ -103,7 +101,7 @@ const fetchPostViaApify = async (handle) => {
       likes_count: post.likesCount || post.likes || 0,
       comments_count: post.commentsCount || post.comments || 0,
       raw_data: post,
-    };
+    }));
   } catch (error) {
     logger.error(`Apify fetch error for @${handle}:`, error.message);
     return null;
@@ -121,33 +119,51 @@ const fetchPostViaApify = async (handle) => {
  */
 /**
  * Fetch Instagram profile data (bio, followers, profile pic, etc.)
- * Uses the /api/instagram/profile endpoint.
+ * Supports multiple RapidAPI hosts: instagram28, instagram-scraper-api2, instagram120.
  */
 const fetchProfileViaRapidAPI = async (handle) => {
   const apiKey = process.env.RAPIDAPI_KEY;
-  const apiHost = process.env.RAPIDAPI_HOST || 'instagram120.p.rapidapi.com';
+  const apiHost = process.env.RAPIDAPI_HOST || 'instagram28.p.rapidapi.com';
   if (!apiKey) return null;
 
   try {
-    const response = await axios.post(
-      `https://${apiHost}/api/instagram/profile`,
-      { username: handle },
-      {
-        headers: {
-          'Content-Type': 'application/json',
-          'x-rapidapi-key': apiKey,
-          'x-rapidapi-host': apiHost,
-        },
-        timeout: 15000,
-      }
-    );
+    let response;
+    const headers = { 'x-rapidapi-key': apiKey, 'x-rapidapi-host': apiHost };
 
-    const profile = response.data?.result || response.data;
-    if (!profile || !profile.username) return null;
+    if (apiHost.includes('instagram28')) {
+      // instagram28: GET /user_info?user_name=xxx
+      response = await axios.get(`https://${apiHost}/user_info`, {
+        params: { user_name: handle },
+        headers,
+        timeout: 15000,
+      });
+    } else if (apiHost.includes('instagram-scraper-api2')) {
+      // instagram-scraper-api2: GET /v1/info
+      response = await axios.get(`https://${apiHost}/v1/info`, {
+        params: { username_or_id_or_url: handle },
+        headers,
+        timeout: 15000,
+      });
+    } else {
+      // instagram120 fallback: POST /api/instagram/profile
+      response = await axios.post(
+        `https://${apiHost}/api/instagram/profile`,
+        { username: handle },
+        {
+          headers: { ...headers, 'Content-Type': 'application/json' },
+          timeout: 15000,
+        }
+      );
+    }
+
+    const data = response.data?.data || response.data;
+    const profile = data?.result || data?.user || data;
+    if (!profile || (!profile.username && !profile.full_name)) return null;
 
     return {
+      user_id: profile.pk || profile.id || null,
       full_name: profile.full_name || null,
-      bio: profile.biography || null,
+      bio: profile.biography || profile.bio || null,
       follower_count: profile.edge_followed_by?.count || profile.follower_count || 0,
       following_count: profile.edge_follow?.count || profile.following_count || 0,
       media_count: profile.edge_owner_to_timeline_media?.count || profile.media_count || 0,
@@ -155,79 +171,122 @@ const fetchProfileViaRapidAPI = async (handle) => {
       is_private: profile.is_private || false,
     };
   } catch (error) {
-    logger.error(`RapidAPI profile fetch error for @${handle}:`, error.message);
+    if (error.response?.status === 429) {
+      logger.warn(`RapidAPI rate limit hit for @${handle}`);
+    } else {
+      logger.error(`RapidAPI profile fetch error for @${handle}:`, error.message);
+    }
     return null;
   }
 };
 
 const fetchPostViaRapidAPI = async (handle) => {
   const apiKey = process.env.RAPIDAPI_KEY;
-  const apiHost = process.env.RAPIDAPI_HOST || 'instagram120.p.rapidapi.com';
+  const apiHost = process.env.RAPIDAPI_HOST || 'instagram28.p.rapidapi.com';
   if (!apiKey) return null;
 
   try {
-    const response = await axios.post(
-      `https://${apiHost}/api/instagram/posts`,
-      {
-        username: handle,
-        maxId: '',
-      },
-      {
-        headers: {
-          'Content-Type': 'application/json',
-          'x-rapidapi-key': apiKey,
-          'x-rapidapi-host': apiHost,
-        },
+    let response;
+    const headers = { 'x-rapidapi-key': apiKey, 'x-rapidapi-host': apiHost };
+
+    if (apiHost.includes('instagram28')) {
+      // instagram28: GET /medias_v2?user_id=xxx (requires user_id, not username)
+      // First resolve username → user_id via user_info or DB
+      let userId = null;
+
+      // Check if we have user_id cached in DB
+      try {
+        const dbResult = await query(
+          "SELECT raw_data->>'pk' as pk FROM clubs WHERE instagram_handle = $1 AND raw_data->>'pk' IS NOT NULL LIMIT 1",
+          [handle]
+        );
+        if (dbResult.rows.length > 0 && dbResult.rows[0].pk) {
+          userId = dbResult.rows[0].pk;
+        }
+      } catch (_) { /* no raw_data column or no match, continue */ }
+
+      // If no cached user_id, fetch profile first
+      if (!userId) {
+        const profile = await fetchProfileViaRapidAPI(handle);
+        if (profile?.user_id) {
+          userId = profile.user_id;
+        } else {
+          logger.info(`instagram28: could not resolve user_id for @${handle}`);
+          return null;
+        }
+      }
+
+      response = await axios.get(`https://${apiHost}/medias_v2`, {
+        params: { user_id: userId },
+        headers,
         timeout: 30000,
-      }
-    );
-
-    // Response format: { result: { edges: [{ node: { ... } }] } }
-    const edges = response.data?.result?.edges || [];
-    if (edges.length === 0) {
-      // Try alternate response formats
-      const posts = response.data?.items || response.data?.data?.items || [];
-      if (posts.length === 0) {
-        logger.info(`RapidAPI: no posts found for @${handle}`);
-        return null;
-      }
-      // Use alternate format
-      const post = posts[0];
-      return normalizePost(post);
+      });
+    } else if (apiHost.includes('instagram-scraper-api2')) {
+      // instagram-scraper-api2: GET /v1/posts
+      response = await axios.get(`https://${apiHost}/v1/posts`, {
+        params: { username_or_id_or_url: handle },
+        headers,
+        timeout: 30000,
+      });
+    } else {
+      // instagram120 fallback: POST /api/instagram/posts
+      response = await axios.post(
+        `https://${apiHost}/api/instagram/posts`,
+        { username: handle, maxId: '' },
+        {
+          headers: { ...headers, 'Content-Type': 'application/json' },
+          timeout: 30000,
+        }
+      );
     }
 
-    const node = edges[0].node;
+    const topLevel = response.data?.data || response.data;
 
-    // Normalize image URLs — handle carousel (sidecar) posts
-    let imageUrls = [];
-    if (node.carousel_media) {
-      imageUrls = node.carousel_media
-        .filter((m) => m.image_versions2)
-        .map((m) => m.image_versions2.candidates?.[0]?.url)
-        .filter(Boolean);
-    } else if (node.image_versions2) {
-      const url = node.image_versions2.candidates?.[0]?.url;
-      if (url) imageUrls = [url];
-    } else if (node.display_url) {
-      imageUrls = [node.display_url];
-    } else if (node.thumbnail_src) {
-      imageUrls = [node.thumbnail_src];
+    // Try multiple response formats
+    // Format 1: { data: { items: [...] } } (instagram-scraper-api2)
+    const items = topLevel?.items || topLevel?.result?.items || [];
+    if (items.length > 0) {
+      return items.map(normalizePost);
     }
 
-    return {
-      post_id: node.code || node.shortcode || node.pk || String(node.id || ''),
-      post_url: node.code
-        ? `https://www.instagram.com/p/${node.code}/`
-        : null,
-      image_urls: imageUrls,
-      caption: node.caption?.text || '',
-      posted_at: node.taken_at
-        ? new Date(node.taken_at * 1000).toISOString()
-        : null,
-      likes_count: node.like_count || 0,
-      comments_count: node.comment_count || 0,
-      raw_data: node,
-    };
+    // Format 2: { result: { edges: [{ node: {...} }] } } (instagram120)
+    const edges = topLevel?.result?.edges || topLevel?.edges || [];
+    if (edges.length > 0) {
+      return edges.map((edge) => {
+        const node = edge.node;
+        let imageUrls = [];
+        if (node.carousel_media) {
+          imageUrls = node.carousel_media
+            .filter((m) => m.image_versions2)
+            .map((m) => m.image_versions2.candidates?.[0]?.url)
+            .filter(Boolean);
+        } else if (node.image_versions2) {
+          const url = node.image_versions2.candidates?.[0]?.url;
+          if (url) imageUrls = [url];
+        } else if (node.display_url) {
+          imageUrls = [node.display_url];
+        } else if (node.thumbnail_src) {
+          imageUrls = [node.thumbnail_src];
+        }
+        return {
+          post_id: node.code || node.shortcode || node.pk || String(node.id || ''),
+          post_url: node.code
+            ? `https://www.instagram.com/p/${node.code}/`
+            : null,
+          image_urls: imageUrls,
+          caption: node.caption?.text || '',
+          posted_at: node.taken_at
+            ? new Date(node.taken_at * 1000).toISOString()
+            : null,
+          likes_count: node.like_count || 0,
+          comments_count: node.comment_count || 0,
+          raw_data: node,
+        };
+      });
+    }
+
+    logger.info(`RapidAPI: no posts found for @${handle}`);
+    return null;
   } catch (error) {
     logger.error(`RapidAPI fetch error for @${handle}:`, error.message);
     return null;
@@ -264,30 +323,36 @@ const normalizePost = (post) => {
 };
 
 /**
- * Fetch the 1 most recent post from an Instagram account.
+ * Fetch recent posts from an Instagram account.
  *
- * Tries Apify first, then falls back to RapidAPI.
+ * Tries RapidAPI first, then falls back to Apify.
  *
  * @param {string} instagramHandle - Instagram handle (without @)
- * @returns {object|null} Normalized post data or null if both sources fail
+ * @returns {Array|null} Array of normalized post data or null if both sources fail
  */
-const fetchLatestPost = async (instagramHandle) => {
+const fetchLatestPosts = async (instagramHandle) => {
   const handle = instagramHandle.replace('@', '').toLowerCase();
 
   // Try RapidAPI first (faster, direct call), fall back to Apify
-  let post = await fetchPostViaRapidAPI(handle);
+  let posts = await fetchPostViaRapidAPI(handle);
 
-  if (!post) {
+  if (!posts || posts.length === 0) {
     logger.info(`RapidAPI failed for @${handle}, trying Apify fallback`);
-    post = await fetchPostViaApify(handle);
+    posts = await fetchPostViaApify(handle);
   }
 
-  if (!post) {
+  if (!posts || posts.length === 0) {
     logger.warn(`All fetch methods failed for @${handle}`);
     return null;
   }
 
-  return post;
+  return posts;
+};
+
+// Backwards-compatible alias
+const fetchLatestPost = async (handle) => {
+  const posts = await fetchLatestPosts(handle);
+  return posts ? posts[0] : null;
 };
 
 /**
@@ -354,8 +419,8 @@ const fetchAllClubPosts = async () => {
     // Step 2: Fetch all posts in parallel
     const postResults = await Promise.allSettled(
       clubs.map(async (club) => {
-        const post = await fetchLatestPost(club.instagram_handle);
-        return { club, post };
+        const posts = await fetchLatestPosts(club.instagram_handle);
+        return { club, posts };
       })
     );
 
@@ -366,53 +431,64 @@ const fetchAllClubPosts = async () => {
         continue;
       }
 
-      const { club, post } = result.value;
+      const { club, posts } = result.value;
 
-      if (!post || !post.post_id) {
+      if (!posts || posts.length === 0) {
         skipped++;
         continue;
       }
 
       fetched++;
 
-      try {
-        const existingPost = await query(
-          'SELECT id FROM posts WHERE instagram_post_id = $1',
-          [post.post_id]
-        );
-
-        if (existingPost.rows.length > 0) {
+      for (const post of posts) {
+        if (!post || !post.post_id) {
           skipped++;
-          logger.debug(`Post ${post.post_id} from @${club.instagram_handle} already exists, skipping`);
           continue;
         }
 
-        await query(
-          `INSERT INTO posts (club_id, instagram_post_id, post_url, image_urls, caption, posted_at, likes_count, comments_count, raw_data, ai_analysis_status)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'pending')`,
-          [
-            club.id,
-            post.post_id,
-            post.post_url,
-            post.image_urls,
-            post.caption,
-            post.posted_at,
-            post.likes_count,
-            post.comments_count,
-            JSON.stringify(post.raw_data),
-          ]
-        );
+        try {
+          const existingPost = await query(
+            'SELECT id FROM posts WHERE instagram_post_id = $1',
+            [post.post_id]
+          );
 
+          if (existingPost.rows.length > 0) {
+            skipped++;
+            logger.debug(`Post ${post.post_id} from @${club.instagram_handle} already exists, skipping`);
+            continue;
+          }
+
+          await query(
+            `INSERT INTO posts (club_id, instagram_post_id, post_url, image_urls, caption, posted_at, likes_count, comments_count, raw_data, ai_analysis_status)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'pending')`,
+            [
+              club.id,
+              post.post_id,
+              post.post_url,
+              post.image_urls,
+              post.caption,
+              post.posted_at,
+              post.likes_count,
+              post.comments_count,
+              JSON.stringify(post.raw_data),
+            ]
+          );
+
+          new_posts++;
+          logger.debug(`New post stored for @${club.instagram_handle}: ${post.post_id}`);
+        } catch (error) {
+          logger.error(`Error saving post for club ${club.name} (@${club.instagram_handle}):`, error.message);
+          errors++;
+        }
+      }
+
+      // Update club's last_post_at with the most recent post
+      const latestPost = posts[0];
+      if (latestPost?.posted_at) {
         await query(
           'UPDATE clubs SET last_post_at = COALESCE($1, NOW()), updated_at = NOW() WHERE id = $2',
-          [post.posted_at, club.id]
-        );
-
-        new_posts++;
-        logger.debug(`New post stored for @${club.instagram_handle}: ${post.post_id}`);
-      } catch (error) {
-        logger.error(`Error saving post for club ${club.name} (@${club.instagram_handle}):`, error.message);
-        errors++;
+          [latestPost.posted_at, club.id]
+        ).catch(() => {});
       }
     }
   } catch (error) {
@@ -426,6 +502,7 @@ const fetchAllClubPosts = async () => {
 
 module.exports = {
   fetchLatestPost,
+  fetchLatestPosts,
   fetchAllClubPosts,
   fetchPostViaApify,
   fetchPostViaRapidAPI,

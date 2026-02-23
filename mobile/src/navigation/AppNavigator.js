@@ -43,6 +43,8 @@ import GroupChatInfoScreen from '../screens/GroupChatInfoScreen';
 import EditProfileScreen from '../screens/EditProfileScreen';
 import EventFeedScreen from '../screens/EventFeedScreen';
 import EventMapScreen from '../screens/EventMapScreen';
+import SchoolVerifyScreen from '../screens/SchoolVerifyScreen';
+import ImportContactsScreen from '../screens/ImportContactsScreen';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -167,7 +169,14 @@ const AppNavigator = () => {
   return (
     <Stack.Navigator screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.background } }}>
       {!isAuthenticated ? (
-        <Stack.Screen name="Login" component={LoginScreen} />
+        <>
+          <Stack.Screen name="Login" component={LoginScreen} />
+          <Stack.Screen
+            name="SchoolVerify"
+            component={SchoolVerifyScreen}
+            options={{ animation: 'slide_from_bottom', presentation: 'modal' }}
+          />
+        </>
       ) : (
         <>
           <Stack.Screen name="Main" component={MainTabs} />
@@ -315,6 +324,16 @@ const AppNavigator = () => {
             name="EventMap"
             component={EventMapScreen}
             options={{ animation: 'slide_from_right' }}
+          />
+          <Stack.Screen
+            name="SchoolVerify"
+            component={SchoolVerifyScreen}
+            options={{ animation: 'slide_from_bottom', presentation: 'modal' }}
+          />
+          <Stack.Screen
+            name="ImportContacts"
+            component={ImportContactsScreen}
+            options={{ animation: 'slide_from_bottom', presentation: 'modal' }}
           />
         </>
       )}

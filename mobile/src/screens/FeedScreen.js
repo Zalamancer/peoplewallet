@@ -28,6 +28,7 @@ const FEED_FILTERS = [
   { key: 'instagram', label: 'Instagram' },
   { key: 'twitter', label: 'X' },
   { key: 'event', label: 'Events' },
+  { key: 'club', label: 'Clubs' },
 ];
 
 const FEED_ADVANCED_FILTERS = [
@@ -137,12 +138,21 @@ const FeedScreen = ({ navigation }) => {
   };
 
   const handleViewProfile = (item) => {
+    if (item.platform === 'club' && item.club_id) {
+      navigation.navigate('ClubDetail', { clubId: item.club_id });
+      return;
+    }
     if (item.contact_id) {
       navigation.navigate('ContactDetail', { contactId: item.contact_id });
     }
   };
 
   const handleOpenPost = (item) => {
+    // Club posts open directly in browser
+    if (item.platform === 'club' && item.content_url) {
+      Linking.openURL(item.content_url).catch(() => {});
+      return;
+    }
     // Event cards don't have external content URLs
     if (item.platform === 'event' && item.contact_id) {
       navigation.navigate('ContactDetail', { contactId: item.contact_id });
@@ -194,6 +204,7 @@ const FeedScreen = ({ navigation }) => {
   const renderItem = ({ item }) => (
     <FeedCard
       item={item}
+      navigation={navigation}
       onViewProfile={handleViewProfile}
       onOpenPost={handleOpenPost}
     />
@@ -278,7 +289,7 @@ const FeedScreen = ({ navigation }) => {
         onSearchChange={setSearchQuery}
         onSearchClear={() => setSearchQuery('')}
         searchPlaceholder="Search by contact name..."
-        rightContent={updatesBadge}
+        rightContent={null}
       />
       <FilterRow
         filters={FEED_FILTERS}
@@ -348,7 +359,6 @@ const createStyles = (colors) => StyleSheet.create({
     fontWeight: '600',
   },
   listContent: {
-    paddingTop: spacing.xs,
     paddingBottom: spacing.xxl,
   },
 

@@ -127,6 +127,79 @@ router.post('/run-pipelines', authenticate, async (req, res) => {
   }
 });
 
+// --- Club Discovery V2 ---
+
+/**
+ * POST /api/admin/run-discovery?key=<ADMIN_SECRET>
+ *
+ * Triggers multi-source club discovery for a school.
+ * Runs in the background — returns immediately with a job ID.
+ *
+ * Body: { school_id?, first_run?, google_query_budget? }
+ *   - school_id: UUID of the school (defaults to first school in DB)
+ *   - first_run: if true, uses full budget; if false, uses conservative budget
+ *   - google_query_budget: override the number of Google CSE queries (default: 190 for first_run, 10 otherwise)
+ */
+router.post('/run-discovery', requireAdminSecret, async (req, res) => {
+  const { school_id, first_run = false, google_query_budget } = req.body || {};
+
+  try {
+    let schoolId = school_id;
+    if (!schoolId) {
+      const schoolResult = await pool.query('SELECT id FROM schools ORDER BY created_at ASC LIMIT 1');
+      if (schoolResult.rows.length === 0) {
+        return res.status(400).json({ error: 'No schools in database. Insert a school first.' });
+      }
+      schoolId = schoolResult.rows[0].id;
+    }
+
+    const budget = google_query_budget || (first_run ? 190 : 10);
+    const jobId = `discovery-${Date.now()}`;
+
+    logger.info(`[Admin] Starting discovery job ${jobId} for school ${schoolId} (budget: ${budget}, first_run: ${first_run})`);
+
+    // Respond immediately
+    res.json({
+      status: 'started',
+      job_id: jobId,
+      school_id: schoolId,
+      google_query_budget: budget,
+      first_run,
+      message: 'Discovery running in background. Check logs or /api/admin/dashboard for progress.',
+    });
+
+    // Run in background (fire-and-forget)
+    const { discoverClubsForSchool, classifyPendingAccounts } = require('../services/club-discovery');
+
+    (async () => {
+      try {
+        logger.info(`[Admin] [${jobId}] Phase 1: Discovering accounts...`);
+        const discoveryStats = await discoverClubsForSchool(schoolId, {
+          googleQueryBudget: budget,
+          googlePagesPerQuery: first_run ? 3 : 1,
+          enableFollowingCrawl: first_run,
+          enableInstagramSearch: first_run,
+        });
+        logger.info(`[Admin] [${jobId}] Discovery done:`, discoveryStats);
+
+        logger.info(`[Admin] [${jobId}] Phase 2: Classifying pending accounts...`);
+        const classifyStats = await classifyPendingAccounts(schoolId, {
+          batchLimit: 0,
+          concurrency: 10,
+        });
+        logger.info(`[Admin] [${jobId}] Classification done:`, classifyStats);
+
+        logger.info(`[Admin] [${jobId}] Complete. Discovered: ${discoveryStats.unique_inserted}, Promoted: ${classifyStats.promoted}`);
+      } catch (error) {
+        logger.error(`[Admin] [${jobId}] Background discovery failed:`, error);
+      }
+    })();
+  } catch (error) {
+    logger.error('[Admin] run-discovery error:', error);
+    res.status(500).json({ error: 'Failed to start discovery', message: error.message });
+  }
+});
+
 // --- Data gathering ---
 
 async function gatherDashboardData() {

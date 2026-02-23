@@ -35,7 +35,11 @@ router.get('/feed', async (req, res) => {
 
     const params = [];
     let paramIndex = 1;
+    // By default, hide past events unless a date filter is explicitly set
     let whereClause = 'WHERE 1=1';
+    if (!date_from && !date_to && !date_filter) {
+      whereClause += ' AND e.event_date >= NOW()';
+    }
 
     // Text search across event name, description, location, club name
     if (search && search.trim()) {

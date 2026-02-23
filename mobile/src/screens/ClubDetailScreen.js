@@ -16,7 +16,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { spacing, typography, borderRadius, shadows } from '../theme/colors';
 import { useTheme } from '../context/ThemeContext';
 import { Dimensions } from 'react-native';
-import { clubsAPI, eventFeedAPI } from '../services/api';
+import { clubsAPI, eventFeedAPI, clubFollowsAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import Button from '../components/Button';
 import ShareToChatModal from '../components/ShareToChatModal';
@@ -69,11 +69,14 @@ const ClubDetailScreen = ({ route, navigation }) => {
   const [posts, setPosts] = useState([]);
   const [postsLoading, setPostsLoading] = useState(true);
   const [showShareChat, setShowShareChat] = useState(false);
+  const [isFollowing, setIsFollowing] = useState(false);
+  const [followLoading, setFollowLoading] = useState(false);
 
   const fetchClub = useCallback(async () => {
     try {
       const response = await clubsAPI.get(clubId);
       setClub(response.data);
+      setIsFollowing(!!response.data.is_following);
     } catch (err) {
       Alert.alert('Error', 'Failed to load club', [
         { text: 'Go Back', onPress: () => navigation.goBack() },
@@ -165,6 +168,24 @@ const ClubDetailScreen = ({ route, navigation }) => {
         },
       ]
     );
+  };
+
+  const handleFollowToggle = async () => {
+    const wasFollowing = isFollowing;
+    setIsFollowing(!wasFollowing);
+    setFollowLoading(true);
+    try {
+      if (wasFollowing) {
+        await clubFollowsAPI.unfollow(clubId);
+      } else {
+        await clubFollowsAPI.follow(clubId);
+      }
+    } catch (error) {
+      setIsFollowing(wasFollowing);
+      Alert.alert('Error', `Failed to ${wasFollowing ? 'unfollow' : 'follow'} club`);
+    } finally {
+      setFollowLoading(false);
+    }
   };
 
   if (loading) {
@@ -315,6 +336,23 @@ const ClubDetailScreen = ({ route, navigation }) => {
               icon={<Ionicons name="add-circle-outline" size={18} color={colors.textInverse} />}
             />
           )}
+
+          {/* Follow / Unfollow toggle (independent from membership) */}
+          <TouchableOpacity
+            style={[styles.followButton, isFollowing && styles.followButtonActive]}
+            onPress={handleFollowToggle}
+            activeOpacity={0.7}
+            disabled={followLoading}
+          >
+            <Ionicons
+              name={isFollowing ? 'heart' : 'heart-outline'}
+              size={18}
+              color={isFollowing ? '#EF4444' : colors.primary}
+            />
+            <Text style={[styles.followButtonText, isFollowing && styles.followButtonTextActive]}>
+              {isFollowing ? 'Following' : 'Follow'}
+            </Text>
+          </TouchableOpacity>
         </View>
 
         {/* Description */}
@@ -680,6 +718,29 @@ const createStyles = (colors) => StyleSheet.create({
     color: '#92400E',
     fontWeight: '600',
   },
+  followButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: spacing.sm + 2,
+    borderRadius: borderRadius.md,
+    borderWidth: 1.5,
+    borderColor: colors.primary,
+    gap: spacing.xs,
+    marginTop: spacing.sm,
+  },
+  followButtonActive: {
+    borderColor: '#EF4444',
+    backgroundColor: '#FEF2F2',
+  },
+  followButtonText: {
+    ...typography.button,
+    color: colors.primary,
+    fontSize: 14,
+  },
+  followButtonTextActive: {
+    color: '#EF4444',
+  },
 
   // Section Card
   sectionCard: {
@@ -827,7 +888,7 @@ const createStyles = (colors) => StyleSheet.create({
     gap: 2,
   },
   postGridItem: {
-    width: (Dimensions.get('window').width - spacing.md * 2 - spacing.lg * 2 - 4) / 3,
+    width: Math.floor((Dimensions.get('window').width - spacing.md * 2 - spacing.lg * 2 - 2 - 2 * 2) / 3),
     aspectRatio: 1,
     borderRadius: borderRadius.sm,
     overflow: 'hidden',

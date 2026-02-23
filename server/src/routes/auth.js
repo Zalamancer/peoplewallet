@@ -1,8 +1,10 @@
 const express = require('express');
+const crypto = require('crypto');
 const jwt = require('jsonwebtoken');
-const { query } = require('../config/database');
+const { query, getClient } = require('../config/database');
 const { authenticate } = require('../middleware/auth');
 const linkedinService = require('../services/linkedin');
+const { sendVerificationCode } = require('../services/email');
 const logger = require('../utils/logger');
 
 const router = express.Router();
@@ -113,6 +115,156 @@ router.post('/login', async (req, res) => {
 });
 
 /**
+ * POST /api/auth/send-verification
+ * Send a 6-digit verification code to a .edu email
+ */
+router.post('/send-verification', async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      return res.status(400).json({ error: 'Email is required' });
+    }
+
+    const normalizedEmail = email.toLowerCase().trim();
+
+    // Validate .edu domain
+    if (!normalizedEmail.endsWith('.edu')) {
+      return res.status(400).json({ error: 'Only .edu email addresses are accepted' });
+    }
+
+    // Generate 6-digit code
+    const code = crypto.randomInt(100000, 999999).toString();
+
+    // Delete any existing codes for this email
+    await query('DELETE FROM email_verifications WHERE email = $1', [normalizedEmail]);
+
+    // Insert new code with 10-minute expiry
+    await query(
+      'INSERT INTO email_verifications (email, code, expires_at) VALUES ($1, $2, NOW() + INTERVAL \'10 minutes\')',
+      [normalizedEmail, code]
+    );
+
+    // Send email (non-fatal in dev if Resend isn't configured for external recipients)
+    try {
+      await sendVerificationCode(normalizedEmail, code);
+    } catch (emailErr) {
+      logger.warn('Email send failed, code still saved:', emailErr.message);
+    }
+
+    // In dev, return the code so the app can display it
+    const response = { message: 'Code sent' };
+    if (process.env.NODE_ENV !== 'production') {
+      response.devCode = code;
+    }
+    res.json(response);
+  } catch (error) {
+    logger.error('Send verification error:', error);
+    res.status(500).json({ error: 'Failed to send verification code' });
+  }
+});
+
+/**
+ * POST /api/auth/verify-email
+ * Verify a .edu email code. Creates account (signup) or links school (existing user).
+ */
+router.post('/verify-email', async (req, res) => {
+  try {
+    const { email, code, name } = req.body;
+
+    if (!email || !code) {
+      return res.status(400).json({ error: 'Email and code are required' });
+    }
+
+    const normalizedEmail = email.toLowerCase().trim();
+
+    // Look up latest non-expired, non-verified code
+    const verResult = await query(
+      `SELECT id FROM email_verifications
+       WHERE email = $1 AND code = $2 AND verified = FALSE AND expires_at > NOW()
+       ORDER BY created_at DESC LIMIT 1`,
+      [normalizedEmail, code]
+    );
+
+    if (verResult.rows.length === 0) {
+      return res.status(400).json({ error: 'Invalid or expired code' });
+    }
+
+    // Mark as verified
+    await query('UPDATE email_verifications SET verified = TRUE WHERE id = $1', [verResult.rows[0].id]);
+
+    // Find or create school from email domain
+    const domain = normalizedEmail.split('@')[1]; // e.g. "utdallas.edu"
+    let schoolResult = await query('SELECT id, name FROM schools WHERE domain = $1', [domain]);
+
+    if (schoolResult.rows.length === 0) {
+      // Auto-create school
+      schoolResult = await query(
+        'INSERT INTO schools (name, domain) VALUES ($1, $2) RETURNING id, name',
+        [domain, domain]
+      );
+    }
+    const school = schoolResult.rows[0];
+
+    // Check if there's an authenticated user (existing user linking their school)
+    const authHeader = req.headers.authorization;
+    let tokenUserId = null;
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      try {
+        const decoded = jwt.verify(authHeader.split(' ')[1], process.env.JWT_SECRET);
+        tokenUserId = decoded.userId;
+      } catch (e) {
+        // Invalid token — treat as new signup
+      }
+    }
+
+    if (tokenUserId) {
+      // Existing user: link school
+      const updateResult = await query(
+        `UPDATE users SET school_id = $1, school_email = $2, school_email_verified = TRUE
+         WHERE id = $3
+         RETURNING id, email, name, school_id, school_email, school_email_verified, subscription_tier`,
+        [school.id, normalizedEmail, tokenUserId]
+      );
+
+      return res.json({ user: updateResult.rows[0], school });
+    }
+
+    // New signup: check if user already exists with this email
+    const existingUser = await query(
+      'SELECT id FROM users WHERE LOWER(email) = $1 OR LOWER(school_email) = $1',
+      [normalizedEmail]
+    );
+
+    if (existingUser.rows.length > 0) {
+      return res.status(409).json({ error: 'An account with this email already exists. Please log in and verify your school email from Settings.' });
+    }
+
+    // Create new user
+    const userResult = await query(
+      `INSERT INTO users (email, name, school_id, school_email, school_email_verified, subscription_tier)
+       VALUES ($1, $2, $3, $4, TRUE, 'student')
+       RETURNING id, email, name, school_id, school_email, school_email_verified, subscription_tier, created_at`,
+      [normalizedEmail, name || normalizedEmail.split('@')[0], school.id, normalizedEmail]
+    );
+
+    const user = userResult.rows[0];
+
+    // Generate JWT
+    const token = jwt.sign({ userId: user.id }, process.env.JWT_SECRET, {
+      expiresIn: process.env.JWT_EXPIRES_IN || '7d',
+    });
+
+    logger.info(`New user registered via school email verification: ${user.id}`);
+
+    res.status(201).json({ user, token, school });
+  } catch (error) {
+    logger.error('Verify email error:', error);
+    res.status(500).json({ error: 'Verification failed' });
+  }
+});
+
+/**
  * GET /api/auth/me
  * Get current user profile with professional info, social links, bio, and profile_visibility
  */
@@ -120,7 +272,7 @@ router.get('/me', authenticate, async (req, res) => {
   try {
     const [userResult, countResult, professionalResult, socialResult, appearanceResult] = await Promise.all([
       query(
-        'SELECT id, email, name, nickname, pronouns, avatar_url, bio, location, profile_visibility, subscription_tier, linkedin_id, created_at, updated_at FROM users WHERE id = $1',
+        'SELECT id, email, name, nickname, pronouns, avatar_url, bio, location, profile_visibility, subscription_tier, linkedin_id, school_id, school_email, school_email_verified, created_at, updated_at FROM users WHERE id = $1',
         [req.user.id]
       ),
       query('SELECT COUNT(*) as count FROM contacts WHERE user_id = $1', [req.user.id]),
@@ -133,12 +285,22 @@ router.get('/me', authenticate, async (req, res) => {
       return res.status(404).json({ error: 'User not found' });
     }
 
+    const userData = userResult.rows[0];
+
+    // Fetch school name if linked
+    let schoolData = null;
+    if (userData.school_id) {
+      const schoolResult = await query('SELECT id, name, domain FROM schools WHERE id = $1', [userData.school_id]);
+      schoolData = schoolResult.rows[0] || null;
+    }
+
     res.json({
-      ...userResult.rows[0],
+      ...userData,
       contactCount: parseInt(countResult.rows[0].count, 10),
       professional: professionalResult.rows[0] || null,
       social: socialResult.rows,
       appearance: appearanceResult.rows[0] || null,
+      school: schoolData,
     });
   } catch (error) {
     logger.error('Get profile error:', error);
@@ -242,6 +404,74 @@ router.put('/me', authenticate, async (req, res) => {
   } catch (error) {
     logger.error('Update profile error:', error);
     res.status(500).json({ error: 'Failed to update profile' });
+  }
+});
+
+/**
+ * DELETE /api/auth/me
+ * Delete current user's account and all associated data
+ */
+router.delete('/me', authenticate, async (req, res) => {
+  const client = await getClient();
+  try {
+    const userId = req.user.id;
+
+    await client.query('BEGIN');
+
+    // Tables to delete from — order matters (child tables first)
+    // Each entry: [sql, params]. Queries use IF EXISTS via a helper to skip missing tables gracefully.
+    const deletions = [
+      ['DELETE FROM contact_card_exchanges WHERE sender_id = $1 OR receiver_id = $1', [userId]],
+      ['DELETE FROM suggestion_dismissals WHERE user_id = $1 OR suggested_user_id = $1', [userId]],
+      ['DELETE FROM co_attendances WHERE user_a_id = $1 OR user_b_id = $1', [userId]],
+      ['DELETE FROM user_connections WHERE user_a_id = $1 OR user_b_id = $1', [userId]],
+      ['DELETE FROM relationship_scores WHERE user_id = $1', [userId]],
+      ['DELETE FROM user_insights WHERE user_id = $1', [userId]],
+      ['DELETE FROM messages WHERE sender_id = $1', [userId]],
+      ['DELETE FROM conversation_participants WHERE user_id = $1', [userId]],
+      ['DELETE FROM rsvps WHERE user_id = $1', [userId]],
+      ['DELETE FROM attendances WHERE user_id = $1', [userId]],
+      ['DELETE FROM user_event_interactions WHERE user_id = $1', [userId]],
+      ['DELETE FROM club_memberships WHERE user_id = $1', [userId]],
+      ['DELETE FROM user_club_follows WHERE user_id = $1', [userId]],
+      ['DELETE FROM notification_log WHERE user_id = $1', [userId]],
+      ['DELETE FROM notification_preferences WHERE user_id = $1', [userId]],
+      ['DELETE FROM user_push_tokens WHERE user_id = $1', [userId]],
+      ['DELETE FROM transcriptions WHERE user_id = $1', [userId]],
+      ['DELETE FROM user_professional WHERE user_id = $1', [userId]],
+      ['DELETE FROM user_social WHERE user_id = $1', [userId]],
+      ['DELETE FROM user_appearance WHERE user_id = $1', [userId]],
+      ['DELETE FROM email_verifications WHERE email = (SELECT email FROM users WHERE id = $1)', [userId]],
+      ['DELETE FROM contacts WHERE user_id = $1', [userId]],
+      ['DELETE FROM contact_groups WHERE user_id = $1', [userId]],
+      ['DELETE FROM events WHERE user_id = $1', [userId]],
+      ['DELETE FROM audit_log WHERE user_id = $1', [userId]],
+      ['DELETE FROM users WHERE id = $1', [userId]],
+    ];
+
+    for (const [sql, params] of deletions) {
+      try {
+        await client.query(sql, params);
+      } catch (err) {
+        // Skip "relation does not exist" errors (table not yet created via migration)
+        if (err.code === '42P01') {
+          logger.warn(`Skipping missing table during account deletion: ${err.message}`);
+          continue;
+        }
+        throw err;
+      }
+    }
+
+    await client.query('COMMIT');
+    logger.info(`User account deleted: ${userId}`);
+
+    res.json({ message: 'Account deleted successfully' });
+  } catch (error) {
+    await client.query('ROLLBACK');
+    logger.error('Account deletion error:', error);
+    res.status(500).json({ error: 'Failed to delete account' });
+  } finally {
+    client.release();
   }
 });
 

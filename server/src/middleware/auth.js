@@ -82,7 +82,9 @@ const contactRateLimit = async (req, res, next) => {
       user.daily_contact_count = 0;
     }
 
-    if (user.daily_contact_count >= 10) {
+    // Unlimited for admin account
+    const UNLIMITED_EMAILS = ['duruihsan@gmail.com'];
+    if (user.daily_contact_count >= 10 && !UNLIMITED_EMAILS.includes(user.email)) {
       return res.status(429).json({
         error: 'Daily contact creation limit reached (10/day)',
         resetAt: new Date(resetAt.getTime() + 24 * 60 * 60 * 1000),

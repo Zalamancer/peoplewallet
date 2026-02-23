@@ -101,13 +101,22 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  const login = useCallback(async ({ email, firebase_uid, name }) => {
+  const login = useCallback(async ({ email, firebase_uid, name, _directAuth }) => {
     try {
       setError(null);
       setLoading(true);
 
-      const response = await authAPI.login({ email, firebase_uid, name });
-      const { user: userData, token: authToken } = response.data;
+      let userData, authToken;
+
+      if (_directAuth) {
+        // Direct auth from school email verification (already have user + token)
+        userData = _directAuth.user;
+        authToken = _directAuth.token;
+      } else {
+        const response = await authAPI.login({ email, firebase_uid, name });
+        userData = response.data.user;
+        authToken = response.data.token;
+      }
 
       await AsyncStorage.setItem('auth_token', authToken);
       await AsyncStorage.setItem('user', JSON.stringify(userData));
@@ -215,6 +224,22 @@ export const AuthProvider = ({ children }) => {
     }
   }, [user]);
 
+  const verifySchoolEmail = useCallback(async ({ email, code }) => {
+    const response = await authAPI.verifyEmail({ email, code });
+    // Refresh user profile to get updated school info
+    try {
+      const profileResponse = await authAPI.getProfile();
+      setUser(profileResponse.data);
+      await AsyncStorage.setItem('user', JSON.stringify(profileResponse.data));
+    } catch (profileErr) {
+      // Fall back to updating from the verify response
+      const updated = { ...user, ...response.data.user };
+      setUser(updated);
+      await AsyncStorage.setItem('user', JSON.stringify(updated));
+    }
+    return response.data;
+  }, [user]);
+
   const value = {
     user,
     token,
@@ -226,6 +251,7 @@ export const AuthProvider = ({ children }) => {
     loginWithLinkedIn,
     logout,
     updateUser,
+    verifySchoolEmail,
     clearError: () => setError(null),
   };
 

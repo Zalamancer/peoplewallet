@@ -16,6 +16,7 @@ const NOTIFICATION_TYPES = {
   RSVP_CONFIRMATION: 'rsvp_confirmation',
   EVENT_UPDATE: 'event_update',
   CLUB_ANNOUNCEMENT: 'club_announcement',
+  CLUB_NEW_EVENT: 'club_new_event',
 };
 
 /**
@@ -254,6 +255,86 @@ const sendEventUpdate = async (userIds, event, changes) => {
   return totalSent;
 };
 
+/**
+ * Notify all followers of a club about new events
+ * @param {string} clubId - The club ID
+ * @param {string} clubName - The club name for notification text
+ * @param {Array} events - Array of created event objects (need at least id and event_name/name)
+ * @returns {{ notified: number, skipped: number }}
+ */
+const notifyClubFollowers = async (clubId, clubName, events) => {
+  try {
+    // Get all followers of this club
+    const followersResult = await query(
+      'SELECT user_id FROM user_club_follows WHERE club_id = $1',
+      [clubId]
+    );
+
+    if (followersResult.rows.length === 0) {
+      logger.info(`No followers to notify for club ${clubId}`);
+      return { notified: 0, skipped: 0 };
+    }
+
+    let notified = 0;
+    let skipped = 0;
+
+    for (const follower of followersResult.rows) {
+      // Check if user has club_new_events notifications enabled
+      const prefsResult = await query(
+        'SELECT club_new_events FROM notification_preferences WHERE user_id = $1',
+        [follower.user_id]
+      );
+
+      const clubNewEvents = prefsResult.rows.length === 0 || prefsResult.rows[0].club_new_events !== false;
+
+      if (!clubNewEvents) {
+        skipped++;
+        continue;
+      }
+
+      // Send one notification per event
+      const notifications = events.map((event) => ({
+        userId: follower.user_id,
+        title: `New event from ${clubName}`,
+        body: event.event_name || event.name || 'New event posted',
+        data: {
+          type: NOTIFICATION_TYPES.CLUB_NEW_EVENT,
+          clubId,
+          eventId: event.id,
+        },
+      }));
+
+      const sent = await sendBatch(notifications);
+      if (sent > 0) notified++;
+
+      // Log each notification
+      for (const event of events) {
+        try {
+          await query(
+            `INSERT INTO notification_log (user_id, type, title, body, metadata)
+             VALUES ($1, $2, $3, $4, $5)`,
+            [
+              follower.user_id,
+              NOTIFICATION_TYPES.CLUB_NEW_EVENT,
+              `New event from ${clubName}`,
+              event.event_name || event.name || 'New event posted',
+              JSON.stringify({ club_id: clubId, club_name: clubName, event_id: event.id }),
+            ]
+          );
+        } catch (logError) {
+          logger.error('Failed to log club new event notification:', logError);
+        }
+      }
+    }
+
+    logger.info(`Club follower notifications for ${clubName}: ${notified} notified, ${skipped} skipped`);
+    return { notified, skipped };
+  } catch (error) {
+    logger.error('notifyClubFollowers error:', error);
+    return { notified: 0, skipped: 0 };
+  }
+};
+
 module.exports = {
   NOTIFICATION_TYPES,
   sendPushNotification,
@@ -262,6 +343,7 @@ module.exports = {
   sendEventReminder,
   sendRsvpConfirmation,
   sendEventUpdate,
+  notifyClubFollowers,
   registerToken,
   unregisterToken,
   removeInvalidToken,

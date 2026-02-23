@@ -311,6 +311,7 @@ router.post(
         nickname,
         pronouns,
         avatar_url,
+        phone_number,
         source = 'manual',
         is_favorite = false,
         professional,
@@ -323,9 +324,9 @@ router.post(
 
       // Create contact
       const contactResult = await client.query(
-        `INSERT INTO contacts (user_id, full_name, nickname, pronouns, avatar_url, source, is_favorite)
-         VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
-        [req.user.id, full_name, nickname, pronouns, avatar_url, source, is_favorite]
+        `INSERT INTO contacts (user_id, full_name, nickname, pronouns, avatar_url, phone_number, source, is_favorite)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
+        [req.user.id, full_name, nickname, pronouns, avatar_url, phone_number || null, source, is_favorite]
       );
       const contact = contactResult.rows[0];
 
@@ -472,7 +473,7 @@ router.put(
 
       await client.query('BEGIN');
 
-      const { full_name, nickname, pronouns, avatar_url, is_favorite, professional, social, appearance, context, notes, tags } =
+      const { full_name, nickname, pronouns, avatar_url, phone_number, is_favorite, professional, social, appearance, context, notes, tags } =
         req.body;
 
       // Update main contact fields
@@ -482,9 +483,10 @@ router.put(
           nickname = COALESCE($2, nickname),
           pronouns = COALESCE($3, pronouns),
           avatar_url = COALESCE($4, avatar_url),
-          is_favorite = COALESCE($5, is_favorite)
-        WHERE id = $6`,
-        [full_name, nickname, pronouns, avatar_url, is_favorite, req.params.id]
+          is_favorite = COALESCE($5, is_favorite),
+          phone_number = COALESCE($6, phone_number)
+        WHERE id = $7`,
+        [full_name, nickname, pronouns, avatar_url, is_favorite, phone_number, req.params.id]
       );
 
       // Upsert professional
@@ -618,6 +620,93 @@ router.post('/:id/unlink', validateUUID, async (req, res) => {
   } catch (error) {
     logger.error('Unlink contact error:', error);
     res.status(error.message === 'Contact not found' ? 404 : 500).json({ error: error.message || 'Failed to unlink contact' });
+  }
+});
+
+/**
+ * POST /api/contacts/bulk-import
+ * Bulk import contacts from phone address book
+ */
+router.post('/bulk-import', contactRateLimit, async (req, res) => {
+  const client = await getClient();
+
+  try {
+    const { contacts } = req.body;
+
+    if (!contacts || !Array.isArray(contacts) || contacts.length === 0) {
+      return res.status(400).json({ error: 'contacts array is required' });
+    }
+
+    if (contacts.length > 500) {
+      return res.status(400).json({ error: 'Maximum 500 contacts per import' });
+    }
+
+    await client.query('BEGIN');
+
+    let imported = 0;
+    let skipped = 0;
+    let skippedReason = null;
+
+    for (const c of contacts) {
+      if (!c.full_name || !c.full_name.trim()) {
+        skipped++;
+        continue;
+      }
+
+      try {
+        // Insert the contact
+        const contactResult = await client.query(
+          `INSERT INTO contacts (user_id, full_name, phone_number, source)
+           VALUES ($1, $2, $3, 'manual') RETURNING id`,
+          [req.user.id, c.full_name.trim(), c.phone_number || null]
+        );
+        const contactId = contactResult.rows[0].id;
+
+        // Insert professional info if company or job_title provided
+        if (c.company || c.job_title) {
+          await client.query(
+            `INSERT INTO contact_professional (contact_id, company, job_title)
+             VALUES ($1, $2, $3)`,
+            [contactId, c.company || null, c.job_title || null]
+          );
+        }
+
+        // Insert social link for email if provided
+        if (c.email) {
+          await client.query(
+            `INSERT INTO contact_social (contact_id, platform, handle, url)
+             VALUES ($1, 'email', $2, '')`,
+            [contactId, c.email]
+          );
+        }
+
+        // Insert notes if provided
+        if (c.notes && c.notes.trim()) {
+          await client.query(
+            `INSERT INTO contact_notes (contact_id, content, source)
+             VALUES ($1, $2, 'manual')`,
+            [contactId, c.notes.trim()]
+          );
+        }
+
+        imported++;
+      } catch (insertErr) {
+        logger.error('Skipping contact during bulk import:', insertErr.message);
+        skipped++;
+        skippedReason = insertErr.message;
+      }
+    }
+
+    await client.query('COMMIT');
+
+    logger.info(`Bulk import: ${imported} imported, ${skipped} skipped by user ${req.user.id}`);
+    res.status(201).json({ imported, skipped, ...(skippedReason && { debug: skippedReason }) });
+  } catch (error) {
+    await client.query('ROLLBACK');
+    logger.error('Bulk import error:', error);
+    res.status(500).json({ error: 'Failed to import contacts' });
+  } finally {
+    client.release();
   }
 });
 

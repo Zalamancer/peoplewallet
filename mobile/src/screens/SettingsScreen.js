@@ -14,7 +14,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { spacing, typography, borderRadius, shadows } from '../theme/colors';
 import { useTheme } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext';
-import { attendancesAPI, adminAPI } from '../services/api';
+import { authAPI, attendancesAPI, adminAPI, notificationsAPI } from '../services/api';
 import Button from '../components/Button';
 import { Ionicons } from '@expo/vector-icons';
 import TabHeaderBar from '../components/TabHeaderBar';
@@ -76,6 +76,14 @@ const SettingsScreen = ({ navigation }) => {
   const [savingProfileVisibility, setSavingProfileVisibility] = useState(false);
   const [pipelineRunning, setPipelineRunning] = useState(false);
   const [pipelineResult, setPipelineResult] = useState(null);
+  const [notifPrefs, setNotifPrefs] = useState({
+    club_new_events: true,
+    event_reminders: true,
+    event_prep_reminders: true,
+    decay_reminders: true,
+    weekly_digest: true,
+  });
+  const [notifPrefsLoading, setNotifPrefsLoading] = useState(true);
 
   const styles = useMemo(() => createStyles(colors), [colors]);
   const sStyles = useMemo(() => createSettingStyles(colors), [colors]);
@@ -94,6 +102,7 @@ const SettingsScreen = ({ navigation }) => {
 
   useEffect(() => {
     fetchAttendanceHistory();
+    fetchNotifPrefs();
   }, []);
 
   const fetchAttendanceHistory = async () => {
@@ -105,6 +114,36 @@ const SettingsScreen = ({ navigation }) => {
       console.warn('Failed to fetch attendance history:', error?.message);
     } finally {
       setLoadingHistory(false);
+    }
+  };
+
+  const fetchNotifPrefs = async () => {
+    try {
+      setNotifPrefsLoading(true);
+      const response = await notificationsAPI.getPreferences();
+      const data = response.data;
+      setNotifPrefs({
+        club_new_events: data.club_new_events !== false,
+        event_reminders: data.event_reminders !== false,
+        event_prep_reminders: data.event_prep_reminders !== false,
+        decay_reminders: data.decay_reminders !== false,
+        weekly_digest: data.weekly_digest !== false,
+      });
+    } catch (error) {
+      console.warn('Failed to fetch notification preferences:', error?.message);
+    } finally {
+      setNotifPrefsLoading(false);
+    }
+  };
+
+  const handleNotifToggle = async (key) => {
+    const previousValue = notifPrefs[key];
+    setNotifPrefs((prev) => ({ ...prev, [key]: !previousValue }));
+    try {
+      await notificationsAPI.updatePreferences({ [key]: !previousValue });
+    } catch (error) {
+      setNotifPrefs((prev) => ({ ...prev, [key]: previousValue }));
+      Alert.alert('Error', 'Failed to update notification preference.');
     }
   };
 
@@ -271,6 +310,38 @@ const SettingsScreen = ({ navigation }) => {
           </View>
         </View>
 
+        {/* Notifications */}
+        <SectionHeader title="Notifications" />
+        <View style={styles.notifSection}>
+          {[
+            { key: 'club_new_events', label: 'New events from followed clubs', desc: 'Get notified when clubs you follow post new events' },
+            { key: 'event_reminders', label: 'Event reminders', desc: 'Reminders before events you\'re attending' },
+            { key: 'event_prep_reminders', label: 'Event prep suggestions', desc: 'Suggestions for contacts to reconnect with before events' },
+            { key: 'decay_reminders', label: 'Reconnect reminders', desc: 'Reminders when you haven\'t contacted someone in a while' },
+            { key: 'weekly_digest', label: 'Weekly digest', desc: 'Weekly summary of your networking activity' },
+          ].map((item, index, arr) => (
+            <View
+              key={item.key}
+              style={[
+                styles.notifRow,
+                index < arr.length - 1 && styles.notifRowBorder,
+              ]}
+            >
+              <View style={styles.notifInfo}>
+                <Text style={styles.notifLabel}>{item.label}</Text>
+                <Text style={styles.notifDesc}>{item.desc}</Text>
+              </View>
+              <Switch
+                value={notifPrefs[item.key]}
+                onValueChange={() => handleNotifToggle(item.key)}
+                trackColor={{ false: colors.borderLight, true: colors.primary }}
+                thumbColor={colors.white}
+                disabled={notifPrefsLoading}
+              />
+            </View>
+          ))}
+        </View>
+
         {/* My Event History */}
         <SectionHeader title="My Event History" />
         <View style={styles.eventHistorySection}>
@@ -398,6 +469,22 @@ const SettingsScreen = ({ navigation }) => {
           label="Calendar"
           onPress={() => navigation.navigate('Calendar')}
         />
+
+        {/* School Verification */}
+        <SectionHeader title="School" />
+        {user?.school_email_verified ? (
+          <SettingsItem
+            label="School Email"
+            value={user.school?.name || user.school_email}
+            rightElement={<Ionicons name="checkmark-circle" size={20} color={colors.success} />}
+          />
+        ) : (
+          <SettingsItem
+            label="Verify School Email"
+            onPress={() => navigation.navigate('SchoolVerify', { mode: 'link' })}
+            rightElement={<Ionicons name="school-outline" size={20} color={colors.primary} />}
+          />
+        )}
 
         {/* Account Section */}
         <SectionHeader title="Account" />
@@ -543,10 +630,26 @@ const SettingsScreen = ({ navigation }) => {
         />
         <SettingsItem
           label="Delete Account"
-          onPress={() => Alert.alert('Delete Account', 'This will permanently delete your account and all data. This action cannot be undone.', [
-            { text: 'Cancel', style: 'cancel' },
-            { text: 'Delete', style: 'destructive', onPress: () => Alert.alert('Contact Support', 'Please email support@peoplewallet.com to request account deletion.') },
-          ])}
+          onPress={() => Alert.alert(
+            'Delete Account',
+            'This will permanently delete your account and all your data, including contacts, messages, and event history. This action cannot be undone.',
+            [
+              { text: 'Cancel', style: 'cancel' },
+              {
+                text: 'Delete My Account',
+                style: 'destructive',
+                onPress: async () => {
+                  try {
+                    await authAPI.deleteAccount();
+                    Alert.alert('Account Deleted', 'Your account has been permanently deleted.');
+                    logout();
+                  } catch (err) {
+                    Alert.alert('Error', err.response?.data?.error || 'Failed to delete account. Please try again or email support@peoplewallet.app.');
+                  }
+                },
+              },
+            ]
+          )}
           danger
         />
 
@@ -555,11 +658,11 @@ const SettingsScreen = ({ navigation }) => {
         <SettingsItem label="Version" value="1.0.0 (MVP)" />
         <SettingsItem
           label="Privacy Policy"
-          onPress={() => Alert.alert('Privacy Policy', 'Privacy policy will be available at launch.')}
+          onPress={() => Linking.openURL('https://peoplewallet.app/legal/privacy-policy.html')}
         />
         <SettingsItem
           label="Terms of Service"
-          onPress={() => Alert.alert('Terms of Service', 'Terms of service will be available at launch.')}
+          onPress={() => Linking.openURL('https://peoplewallet.app/legal/terms-of-service.html')}
         />
 
 
@@ -792,6 +895,40 @@ const createStyles = (colors) => StyleSheet.create({
     ...typography.body,
     fontWeight: '600',
     color: colors.error,
+  },
+
+  // Notifications
+  notifSection: {
+    backgroundColor: colors.surface,
+    marginHorizontal: spacing.md,
+    borderRadius: borderRadius.lg,
+    ...shadows.sm,
+    overflow: 'hidden',
+  },
+  notifRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.md,
+  },
+  notifRowBorder: {
+    borderBottomWidth: 0.5,
+    borderBottomColor: colors.borderLight,
+  },
+  notifInfo: {
+    flex: 1,
+    marginRight: spacing.md,
+  },
+  notifLabel: {
+    ...typography.body,
+    color: colors.textPrimary,
+    fontWeight: '500',
+  },
+  notifDesc: {
+    ...typography.caption,
+    color: colors.textTertiary,
+    marginTop: 2,
   },
 
   // Event History
