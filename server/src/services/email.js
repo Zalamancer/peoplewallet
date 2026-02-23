@@ -5,7 +5,7 @@ const resend = process.env.RESEND_API_KEY
   ? new Resend(process.env.RESEND_API_KEY)
   : null;
 
-const FROM_ADDRESS = process.env.RESEND_FROM_ADDRESS || 'onboarding@resend.dev';
+const FROM_ADDRESS = process.env.RESEND_FROM_ADDRESS || 'verify@anonyread.com';
 
 /**
  * Send a 6-digit verification code to an email address
