@@ -1,0 +1,1743 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>PeopleWallet</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/ionicons/7.2.2/collection/components/icon/icon.min.css">
+<script type="module" src="https://unpkg.com/ionicons@7.2.2/dist/ionicons/ionicons.esm.js"></script>
+<script nomodule src="https://unpkg.com/ionicons@7.2.2/dist/ionicons/ionicons.js"></script>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+:root, .theme-dark {
+  --primary: #0A84FF;
+  --primaryDark: #0056B3;
+  --primaryBg: rgba(10, 132, 255, 0.15);
+  --accent: #30D158;
+  --success: #30D158;
+  --warning: #FFD60A;
+  --error: #FF453A;
+  --info: #64D2FF;
+  --bg: #000000;
+  --surface: #1C1C1E;
+  --border: #38383A;
+  --borderLight: #2C2C2E;
+  --textPrimary: #FFFFFF;
+  --textSecondary: #EBEBF5;
+  --textTertiary: #8E8E93;
+  --textInverse: #FFFFFF;
+  --tagBg: #2C2C2E;
+  --tagText: #EBEBF5;
+  --placeholder: #636366;
+  --recording: #FF453A;
+  --phoneBorder: #333;
+  --outerBg: #111;
+}
+.theme-light {
+  --primary: #007AFF;
+  --primaryDark: #0056B3;
+  --primaryBg: rgba(0, 122, 255, 0.08);
+  --accent: #34C759;
+  --success: #34C759;
+  --warning: #FF9500;
+  --error: #FF3B30;
+  --info: #5AC8FA;
+  --bg: #F2F2F7;
+  --surface: #FFFFFF;
+  --border: #C6C6C8;
+  --borderLight: #E5E5EA;
+  --textPrimary: #000000;
+  --textSecondary: #3C3C43;
+  --textTertiary: #8E8E93;
+  --textInverse: #FFFFFF;
+  --tagBg: #E5E5EA;
+  --tagText: #3C3C43;
+  --placeholder: #C7C7CC;
+  --recording: #FF3B30;
+  --phoneBorder: #ccc;
+  --outerBg: #e5e5e5;
+}
+.theme-sepia {
+  --primary: #B66A35;
+  --primaryDark: #8C4D22;
+  --primaryBg: rgba(182, 106, 53, 0.1);
+  --accent: #A0522D;
+  --success: #6B8E23;
+  --warning: #DAA520;
+  --error: #CD5C5C;
+  --info: #4682B4;
+  --bg: #F4ECD8;
+  --surface: #FDF6E3;
+  --border: #E2D5BE;
+  --borderLight: #E8DFCC;
+  --textPrimary: #4B3621;
+  --textSecondary: #6B543A;
+  --textTertiary: #8B7355;
+  --textInverse: #FDF6E3;
+  --tagBg: #E8DFCC;
+  --tagText: #6B543A;
+  --placeholder: #9C886F;
+  --recording: #CD5C5C;
+  --phoneBorder: #C8B99A;
+  --outerBg: #D4CAAF;
+}
+html, body {
+  height: 100%;
+  background: #111;
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Roboto, sans-serif;
+  overflow: hidden;
+}
+#phone {
+  width: 390px; height: 844px;
+  background: var(--bg);
+  margin: 20px auto;
+  border-radius: 44px;
+  border: 3px solid #333;
+  overflow: hidden;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+@media (max-width: 430px) {
+  #phone { width: 100%; height: 100vh; border-radius: 0; border: none; margin: 0; }
+}
+
+/* Status bar */
+.status-bar { height: 54px; display: flex; align-items: flex-end; justify-content: space-between; padding: 0 28px 6px; background: var(--bg); flex-shrink: 0; }
+.status-bar .time { font-size: 15px; font-weight: 600; color: var(--textPrimary); }
+.status-bar .icons { display: flex; gap: 6px; align-items: center; font-size: 13px; color: var(--textPrimary); }
+
+/* Screen container */
+.screen-area { flex: 1; overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch; }
+.screen-area::-webkit-scrollbar { display: none; }
+
+/* Tab bar */
+.tab-bar {
+  display: flex; height: 83px; background: var(--surface); border-top: 0.5px solid var(--border);
+  padding-bottom: 20px; flex-shrink: 0;
+}
+.tab-item {
+  flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 2px; cursor: pointer; position: relative; padding-top: 8px;
+}
+.tab-item ion-icon { font-size: 24px; color: var(--textTertiary); }
+.tab-item span { font-size: 10px; color: var(--textTertiary); font-weight: 500; }
+.tab-item.active ion-icon { color: var(--primary); }
+.tab-item.active span { color: var(--primary); }
+.tab-badge {
+  position: absolute; top: 4px; right: calc(50% - 18px);
+  background: var(--error); color: #fff; font-size: 9px; font-weight: 700;
+  min-width: 16px; height: 16px; border-radius: 8px;
+  display: flex; align-items: center; justify-content: center; padding: 0 4px;
+}
+
+/* Screens */
+.screen { display: none; flex: 1; min-height: 0; flex-direction: column; overflow: hidden; }
+.screen.active { display: flex; }
+
+/* Header bar */
+.header-bar {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 8px 16px 12px; flex-shrink: 0;
+}
+.header-title { font-size: 30px; font-weight: 700; color: var(--textPrimary); letter-spacing: 0.5px; }
+.header-actions { display: flex; gap: 16px; align-items: center; }
+.header-actions ion-icon { font-size: 24px; color: var(--textTertiary); cursor: pointer; }
+.header-actions .chat-icon { position: relative; }
+.header-actions .badge {
+  position: absolute; top: -4px; right: -6px;
+  background: var(--error); color: #fff; font-size: 9px; font-weight: 700;
+  min-width: 16px; height: 16px; border-radius: 8px;
+  display: flex; align-items: center; justify-content: center; padding: 0 4px;
+}
+
+/* Detail header */
+.detail-header {
+  display: flex; align-items: center; padding: 8px 16px 12px; gap: 12px; flex-shrink: 0;
+  border-bottom: 0.5px solid var(--borderLight);
+}
+.detail-header .back-btn { cursor: pointer; display: flex; align-items: center; }
+.detail-header .back-btn ion-icon { font-size: 28px; color: var(--primary); }
+.detail-header .detail-title { font-size: 17px; font-weight: 600; color: var(--textPrimary); flex: 1; }
+.detail-header .detail-actions { display: flex; gap: 16px; }
+.detail-header .detail-actions ion-icon { font-size: 22px; color: var(--primary); cursor: pointer; }
+
+/* Filter row */
+.filter-row { display: flex; gap: 8px; padding: 0 16px 8px; overflow-x: auto; flex-shrink: 0; }
+.filter-row::-webkit-scrollbar { display: none; }
+.filter-pill {
+  padding: 6px 14px; border-radius: 999px; font-size: 13px; font-weight: 600;
+  white-space: nowrap; cursor: pointer; border: 1px solid var(--border);
+  color: var(--textSecondary); background: transparent; flex-shrink: 0;
+}
+.filter-pill.active { background: var(--primary); color: var(--textInverse); border-color: var(--primary); }
+
+/* Contact card */
+.contact-card {
+  display: flex; align-items: center; padding: 14px 16px; gap: 12px;
+  border-bottom: 0.5px solid var(--borderLight); cursor: pointer;
+  transition: background 0.15s;
+}
+.contact-card:active { background: var(--surface); }
+.avatar {
+  width: 50px; height: 50px; border-radius: 25px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 18px; font-weight: 700; color: #fff; flex-shrink: 0;
+}
+.avatar.lg { width: 96px; height: 96px; border-radius: 48px; font-size: 36px; }
+.avatar img { width: 100%; height: 100%; border-radius: inherit; object-fit: cover; }
+.contact-info { flex: 1; min-width: 0; }
+.contact-name { font-size: 16px; font-weight: 600; color: var(--textPrimary); }
+.contact-sub { font-size: 13px; color: var(--textTertiary); margin-top: 2px; }
+.contact-meta { display: flex; gap: 6px; margin-top: 4px; flex-wrap: wrap; }
+.tag {
+  padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 600;
+  background: var(--tagBg); color: var(--tagText);
+}
+.tag.primary { background: var(--primaryBg); color: var(--primary); }
+.contact-fav { color: var(--warning); font-size: 18px; flex-shrink: 0; }
+.mutual-badge { font-size: 11px; color: var(--accent); font-weight: 600; display: flex; align-items: center; gap: 2px; }
+
+/* FAB */
+.fab {
+  position: absolute; bottom: 100px; right: 24px;
+  width: 60px; height: 60px; border-radius: 30px; background: var(--primary);
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 4px 12px rgba(10,132,255,0.4); cursor: pointer; z-index: 10;
+}
+.fab ion-icon { font-size: 32px; color: #fff; }
+
+/* Feed card */
+.feed-card {
+  background: var(--surface); border: 1px solid var(--borderLight); border-radius: 14px;
+  margin: 0 16px 12px; overflow: hidden;
+}
+.feed-header { display: flex; align-items: center; padding: 12px 16px; gap: 10px; }
+.feed-avatar { width: 40px; height: 40px; border-radius: 20px; display: flex; align-items: center; justify-content: center; font-size: 15px; font-weight: 700; color: #fff; flex-shrink: 0; }
+.feed-user { flex: 1; }
+.feed-username { font-size: 14px; font-weight: 600; color: var(--textPrimary); }
+.feed-time { font-size: 12px; color: var(--textTertiary); }
+.feed-platform { font-size: 16px; }
+.feed-body { padding: 0 16px 12px; }
+.feed-text { font-size: 14px; color: var(--textSecondary); line-height: 20px; }
+.feed-image { width: 100%; height: 200px; background: var(--borderLight); display: flex; align-items: center; justify-content: center; }
+.feed-image ion-icon { font-size: 48px; color: var(--textTertiary); }
+.feed-actions { display: flex; padding: 8px 16px 12px; gap: 20px; }
+.feed-action { display: flex; align-items: center; gap: 4px; font-size: 13px; color: var(--textTertiary); cursor: pointer; }
+.feed-action ion-icon { font-size: 18px; }
+
+/* Event card */
+.event-card {
+  background: var(--surface); border: 1px solid var(--borderLight); border-radius: 14px;
+  margin: 0 16px 12px; padding: 16px; cursor: pointer;
+}
+.event-category {
+  display: inline-block; padding: 3px 10px; border-radius: 999px; font-size: 11px; font-weight: 600;
+  margin-bottom: 8px;
+}
+.event-name { font-size: 16px; font-weight: 600; color: var(--textPrimary); margin-bottom: 6px; }
+.event-detail { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--textTertiary); margin-bottom: 4px; }
+.event-detail ion-icon { font-size: 14px; }
+.event-footer { display: flex; justify-content: space-between; align-items: center; margin-top: 8px; }
+.event-rsvp { font-size: 12px; color: var(--accent); font-weight: 600; }
+.event-club { font-size: 12px; color: var(--primary); }
+
+/* Co-attendees row */
+.coattendees { padding: 0 16px 16px; }
+.coattendees-title { font-size: 13px; font-weight: 600; color: var(--textTertiary); text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: 10px; }
+.coattendees-scroll { display: flex; gap: 12px; overflow-x: auto; padding-bottom: 4px; }
+.coattendees-scroll::-webkit-scrollbar { display: none; }
+.coattendee { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.coattendee .avatar { width: 44px; height: 44px; border-radius: 22px; font-size: 14px; }
+.coattendee-name { font-size: 11px; color: var(--textTertiary); max-width: 56px; text-align: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* QR Scanner */
+.qr-screen { background: #000; display: flex; align-items: center; justify-content: center; flex: 1; position: relative; }
+.qr-viewfinder {
+  width: 250px; height: 250px; border: 2px solid rgba(255,255,255,0.3); border-radius: 20px;
+  position: relative;
+}
+.qr-corner { position: absolute; width: 30px; height: 30px; border-color: var(--primary); }
+.qr-corner.tl { top: -2px; left: -2px; border-top: 3px solid; border-left: 3px solid; border-radius: 8px 0 0 0; }
+.qr-corner.tr { top: -2px; right: -2px; border-top: 3px solid; border-right: 3px solid; border-radius: 0 8px 0 0; }
+.qr-corner.bl { bottom: -2px; left: -2px; border-bottom: 3px solid; border-left: 3px solid; border-radius: 0 0 0 8px; }
+.qr-corner.br { bottom: -2px; right: -2px; border-bottom: 3px solid; border-right: 3px solid; border-radius: 0 0 8px 0; }
+.qr-instruction { position: absolute; bottom: 120px; color: rgba(255,255,255,0.7); font-size: 15px; text-align: center; }
+.qr-scan-line {
+  position: absolute; top: 20px; left: 20px; right: 20px; height: 2px;
+  background: var(--primary); box-shadow: 0 0 8px var(--primary);
+  animation: scanLine 2.5s ease-in-out infinite;
+}
+@keyframes scanLine { 0%,100% { top: 20px; } 50% { top: 210px; } }
+
+/* Settings */
+.settings-section { padding: 0 16px; margin-bottom: 24px; }
+.settings-label { font-size: 13px; font-weight: 600; color: var(--textTertiary); text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: 8px; padding: 0 4px; }
+.settings-card { background: var(--surface); border-radius: 14px; overflow: hidden; }
+.settings-item {
+  display: flex; align-items: center; padding: 14px 16px; gap: 12px;
+  border-bottom: 0.5px solid var(--borderLight); cursor: pointer;
+}
+.settings-item:last-child { border-bottom: none; }
+.settings-icon { width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center; }
+.settings-icon ion-icon { font-size: 18px; color: #fff; }
+.settings-text { flex: 1; }
+.settings-text .title { font-size: 16px; color: var(--textPrimary); }
+.settings-text .subtitle { font-size: 13px; color: var(--textTertiary); margin-top: 1px; }
+.settings-chevron { color: var(--textTertiary); font-size: 18px; }
+
+/* Profile card */
+.profile-card {
+  display: flex; align-items: center; padding: 20px 16px; gap: 14px;
+  margin: 0 16px 16px; background: var(--surface); border-radius: 14px;
+}
+.profile-info { flex: 1; }
+.profile-name { font-size: 20px; font-weight: 700; color: var(--textPrimary); }
+.profile-email { font-size: 13px; color: var(--textTertiary); margin-top: 2px; }
+.profile-tier {
+  display: inline-block; padding: 2px 10px; border-radius: 999px; font-size: 11px; font-weight: 600;
+  background: var(--primaryBg); color: var(--primary); margin-top: 6px;
+}
+
+/* Theme toggle */
+.theme-toggle { display: flex; background: var(--borderLight); border-radius: 10px; padding: 3px; margin: 0 16px 16px; }
+.theme-btn { flex: 1; padding: 8px; text-align: center; border-radius: 8px; font-size: 13px; font-weight: 600; color: var(--textTertiary); cursor: pointer; }
+.theme-btn.active { background: var(--surface); color: var(--textPrimary); }
+
+/* Toggle switch */
+.toggle { width: 44px; height: 26px; border-radius: 13px; background: var(--border); position: relative; cursor: pointer; flex-shrink: 0; transition: background 0.2s; }
+.toggle.on { background: var(--accent); }
+.toggle-knob { width: 22px; height: 22px; border-radius: 11px; background: #fff; position: absolute; top: 2px; left: 2px; transition: left 0.2s; }
+.toggle.on .toggle-knob { left: 20px; }
+
+/* Club card */
+.club-card {
+  display: flex; align-items: center; padding: 14px 16px; gap: 12px;
+  border-bottom: 0.5px solid var(--borderLight); cursor: pointer;
+}
+.club-avatar { width: 50px; height: 50px; border-radius: 14px; display: flex; align-items: center; justify-content: center; font-size: 20px; flex-shrink: 0; }
+.club-info { flex: 1; min-width: 0; }
+.club-name { font-size: 16px; font-weight: 600; color: var(--textPrimary); }
+.club-category { font-size: 12px; color: var(--primary); margin-top: 2px; }
+.club-members { font-size: 12px; color: var(--textTertiary); margin-top: 2px; }
+.club-follow-btn {
+  padding: 6px 14px; border-radius: 999px; font-size: 13px; font-weight: 600;
+  background: var(--primary); color: #fff; border: none; cursor: pointer;
+}
+.club-follow-btn.following { background: transparent; border: 1px solid var(--border); color: var(--textTertiary); }
+
+/* Contact detail */
+.contact-detail-scroll { flex: 1; overflow-y: auto; padding-bottom: 40px; }
+.cd-profile { display: flex; flex-direction: column; align-items: center; padding: 24px 16px; }
+.cd-name { font-size: 24px; font-weight: 700; color: var(--textPrimary); margin-top: 12px; }
+.cd-title { font-size: 14px; color: var(--textTertiary); margin-top: 4px; text-align: center; }
+.cd-actions { display: flex; gap: 12px; margin-top: 16px; }
+.cd-action-btn {
+  display: flex; flex-direction: column; align-items: center; gap: 4px;
+  padding: 10px 16px; border-radius: 14px; background: var(--surface); cursor: pointer;
+  min-width: 70px; border: 1px solid var(--borderLight);
+}
+.cd-action-btn ion-icon { font-size: 22px; color: var(--primary); }
+.cd-action-btn span { font-size: 11px; color: var(--textTertiary); }
+.cd-section { padding: 0 16px; margin-top: 20px; }
+.cd-section-title { font-size: 13px; font-weight: 600; color: var(--textTertiary); text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: 8px; }
+.cd-card { background: var(--surface); border-radius: 14px; overflow: hidden; }
+.cd-row { display: flex; align-items: center; padding: 12px 16px; gap: 10px; border-bottom: 0.5px solid var(--borderLight); }
+.cd-row:last-child { border-bottom: none; }
+.cd-row-icon { font-size: 20px; color: var(--primary); width: 28px; text-align: center; }
+.cd-row-text { flex: 1; }
+.cd-row-label { font-size: 12px; color: var(--textTertiary); }
+.cd-row-value { font-size: 15px; color: var(--textPrimary); margin-top: 1px; }
+
+/* Chat */
+.chat-container { flex: 1; display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
+.chat-messages { flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 6px; }
+.message-row { display: flex; }
+.message-row.own { justify-content: flex-end; }
+.message-bubble {
+  max-width: 75%; padding: 10px 14px; border-radius: 18px;
+  font-size: 15px; line-height: 20px;
+}
+.message-row.own .message-bubble { background: var(--primary); color: #fff; border-bottom-right-radius: 4px; }
+.message-row.other .message-bubble { background: var(--surface); color: var(--textPrimary); border-bottom-left-radius: 4px; }
+.message-time { font-size: 11px; opacity: 0.6; margin-top: 4px; text-align: right; }
+.message-gif { max-width: 220px; border-radius: 14px; overflow: hidden; }
+.message-gif img { width: 100%; display: block; border-radius: 14px; }
+.message-gif .giphy-attr { font-size: 10px; color: var(--textTertiary); margin-top: 2px; }
+.chat-input-bar {
+  display: flex; align-items: center; gap: 8px; padding: 8px 12px 28px;
+  background: var(--surface); border-top: 0.5px solid var(--borderLight);
+  flex-shrink: 0;
+}
+.gif-btn {
+  padding: 4px 8px; border: 1.5px solid var(--border); border-radius: 6px;
+  font-size: 13px; font-weight: 700; color: var(--textTertiary); cursor: pointer;
+  background: none;
+}
+.chat-input {
+  flex: 1; padding: 8px 14px; border-radius: 20px; border: none;
+  background: var(--borderLight); color: var(--textPrimary); font-size: 15px;
+  outline: none;
+}
+.chat-input::placeholder { color: var(--placeholder); }
+.send-btn { width: 34px; height: 34px; border-radius: 17px; background: var(--primary); display: flex; align-items: center; justify-content: center; cursor: pointer; border: none; }
+.send-btn ion-icon { font-size: 18px; color: #fff; }
+
+/* Club detail */
+.club-detail-scroll { flex: 1; overflow-y: auto; padding-bottom: 40px; }
+.club-detail-profile { display: flex; flex-direction: column; align-items: center; padding: 24px 16px 16px; }
+.club-detail-name { font-size: 24px; font-weight: 700; color: var(--textPrimary); margin-top: 12px; text-align: center; }
+.club-detail-handle { font-size: 14px; color: var(--primary); margin-top: 4px; }
+.club-detail-cat { display: inline-block; padding: 4px 12px; border-radius: 999px; font-size: 12px; font-weight: 600; margin-top: 8px; }
+.club-stats { display: flex; justify-content: center; gap: 32px; padding: 16px; }
+.club-stat { text-align: center; }
+.club-stat-num { font-size: 18px; font-weight: 700; color: var(--textPrimary); }
+.club-stat-label { font-size: 12px; color: var(--textTertiary); }
+.club-action-row { display: flex; gap: 12px; padding: 0 16px 16px; }
+.club-action-btn { flex: 1; padding: 10px; border-radius: 10px; text-align: center; font-size: 15px; font-weight: 600; cursor: pointer; }
+.club-action-btn.join { background: var(--primary); color: #fff; }
+.club-action-btn.follow { background: transparent; border: 1px solid var(--border); color: var(--textPrimary); display: flex; align-items: center; justify-content: center; gap: 6px; }
+.club-bio { padding: 0 16px 16px; font-size: 14px; color: var(--textSecondary); line-height: 20px; }
+.club-posts-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 2px; padding: 0 16px; }
+.club-post-thumb { aspect-ratio: 1; background: var(--borderLight); border-radius: 4px; display: flex; align-items: center; justify-content: center; }
+.club-post-thumb ion-icon { font-size: 28px; color: var(--textTertiary); }
+
+/* Conversations list */
+.conv-item {
+  display: flex; align-items: center; padding: 14px 24px; gap: 14px;
+  border-bottom: 0.5px solid var(--borderLight); cursor: pointer;
+}
+.conv-content { flex: 1; min-width: 0; }
+.conv-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 2px; }
+.conv-name { font-size: 16px; font-weight: 500; color: var(--textPrimary); }
+.conv-name.unread { font-weight: 700; }
+.conv-time { font-size: 12px; color: var(--textTertiary); }
+.conv-time.unread { color: var(--primary); font-weight: 600; }
+.conv-bottom { display: flex; align-items: center; }
+.conv-preview { font-size: 14px; color: var(--textTertiary); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.conv-preview.unread { color: var(--textPrimary); font-weight: 500; }
+.conv-unread {
+  background: var(--primary); color: #fff; font-size: 11px; font-weight: 700;
+  min-width: 20px; height: 20px; border-radius: 10px;
+  display: flex; align-items: center; justify-content: center; padding: 0 6px; margin-left: 8px;
+}
+
+/* Empty state */
+.empty-state { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 80px 32px; }
+.empty-state ion-icon { font-size: 64px; color: var(--textTertiary); margin-bottom: 16px; }
+.empty-state .empty-title { font-size: 20px; font-weight: 700; color: var(--textPrimary); margin-bottom: 8px; }
+.empty-state .empty-sub { font-size: 14px; color: var(--textTertiary); text-align: center; line-height: 20px; }
+
+/* Count text */
+.count-text { font-size: 13px; color: var(--textTertiary); padding: 4px 16px 8px; }
+
+/* Scrollable content */
+.scroll-content { flex: 1; overflow-y: auto; }
+.scroll-content::-webkit-scrollbar { display: none; }
+
+/* Utility */
+.hidden { display: none !important; }
+.signout-btn {
+  margin: 16px; padding: 14px; border-radius: 14px; background: var(--surface);
+  text-align: center; color: var(--error); font-size: 16px; font-weight: 600; cursor: pointer;
+}
+
+/* Category colors */
+.cat-social { background: rgba(16, 185, 129, 0.15); color: #10B981; }
+.cat-cultural { background: rgba(168, 85, 247, 0.15); color: #A855F7; }
+.cat-sports { background: rgba(239, 68, 68, 0.15); color: #EF4444; }
+.cat-academic { background: rgba(59, 130, 246, 0.15); color: #3B82F6; }
+.cat-arts { background: rgba(236, 72, 153, 0.15); color: #EC4899; }
+.cat-professional { background: rgba(245, 158, 11, 0.15); color: #F59E0B; }
+.cat-tech { background: rgba(6, 182, 212, 0.15); color: #06B6D4; }
+.cat-greek { background: rgba(139, 92, 246, 0.15); color: #8B5CF6; }
+.cat-religious { background: rgba(251, 191, 36, 0.15); color: #FBBF24; }
+.cat-career { background: rgba(34, 197, 94, 0.15); color: #22C55E; }
+
+/* Section divider */
+.section-divider { display: flex; align-items: center; gap: 12px; padding: 16px 16px 8px; }
+.section-divider span { font-size: 13px; font-weight: 600; color: var(--textTertiary); text-transform: uppercase; letter-spacing: 0.6px; }
+.section-divider-line { flex: 1; height: 0.5px; background: var(--borderLight); }
+
+/* Search bar inline */
+.search-bar { padding: 0 16px 8px; }
+.search-input-wrap {
+  display: flex; align-items: center; background: var(--surface); border-radius: 10px;
+  padding: 8px 12px; gap: 8px;
+}
+.search-input-wrap ion-icon { font-size: 18px; color: var(--textTertiary); }
+.search-input-wrap input {
+  flex: 1; background: none; border: none; color: var(--textPrimary);
+  font-size: 15px; outline: none;
+}
+.search-input-wrap input::placeholder { color: var(--placeholder); }
+
+/* Footer caught up */
+.caught-up { display: flex; align-items: center; gap: 12px; padding: 24px 16px; }
+.caught-up-line { flex: 1; height: 0.5px; background: var(--borderLight); }
+.caught-up-text { font-size: 13px; color: var(--textTertiary); white-space: nowrap; }
+
+/* Event detail */
+.ed-info-card { background: var(--surface); border-radius: 14px; margin: 0 16px 16px; padding: 20px; }
+.ed-name { font-size: 22px; font-weight: 700; color: var(--textPrimary); margin-bottom: 8px; }
+.ed-type-row { display: flex; gap: 8px; margin-bottom: 14px; flex-wrap: wrap; }
+.ed-detail-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+.ed-detail-row ion-icon { font-size: 18px; color: var(--primary); width: 24px; flex-shrink: 0; }
+.ed-detail-text { font-size: 15px; color: var(--textPrimary); }
+.ed-detail-sub { font-size: 12px; color: var(--textTertiary); }
+.ed-map {
+  width: 100%; height: 140px; border-radius: 10px; background: var(--borderLight);
+  display: flex; align-items: center; justify-content: center; margin: 12px 0 4px;
+  position: relative; overflow: hidden;
+}
+.ed-map-pin { font-size: 32px; color: var(--error); }
+.ed-map-label { position: absolute; bottom: 8px; right: 8px; background: var(--primary); color: #fff; font-size: 12px; font-weight: 600; padding: 4px 10px; border-radius: 8px; cursor: pointer; }
+.ed-about { padding: 0 16px 16px; }
+.ed-about-title { font-size: 13px; font-weight: 600; color: var(--textTertiary); text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: 8px; }
+.ed-about-text { font-size: 14px; color: var(--textSecondary); line-height: 20px; }
+.ed-rsvp-row { display: flex; gap: 10px; padding: 0 16px 16px; }
+.ed-rsvp-btn {
+  flex: 1; padding: 12px; border-radius: 12px; text-align: center; font-size: 14px; font-weight: 600;
+  cursor: pointer; border: 1px solid var(--border); color: var(--textPrimary); background: var(--surface);
+  display: flex; flex-direction: column; align-items: center; gap: 4px;
+}
+.ed-rsvp-btn ion-icon { font-size: 22px; }
+.ed-rsvp-btn.going { background: rgba(48,209,88,0.15); border-color: var(--success); color: var(--success); }
+.ed-rsvp-btn.maybe { background: rgba(255,214,10,0.15); border-color: var(--warning); color: var(--warning); }
+.ed-rsvp-btn.cantgo { background: rgba(255,69,58,0.15); border-color: var(--error); color: var(--error); }
+.ed-attendees { padding: 0 16px 16px; }
+.ed-attendee-row { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 0.5px solid var(--borderLight); }
+.ed-attendee-row:last-child { border-bottom: none; }
+.ed-club-card {
+  display: flex; align-items: center; gap: 12px; padding: 14px 16px; margin: 0 16px 16px;
+  background: var(--surface); border-radius: 14px; cursor: pointer;
+}
+.ed-club-info { flex: 1; }
+.ed-club-name { font-size: 15px; font-weight: 600; color: var(--textPrimary); }
+.ed-club-sub { font-size: 12px; color: var(--textTertiary); }
+
+/* Event Map */
+.map-fullscreen { flex: 1; position: relative; overflow: hidden; }
+.map-bg { width: 100%; height: 100%; position: relative; overflow: hidden; }
+.map-tiles { width: 100%; height: 100%; display: grid; grid-template-columns: repeat(4,256px); grid-template-rows: repeat(4,256px); position: absolute; }
+.map-tiles img { width: 256px; height: 256px; display: block; }
+.map-marker {
+  position: absolute; width: 18px; height: 18px; border-radius: 50%;
+  border: 3px solid #fff; cursor: pointer; z-index: 5;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.4); transition: transform 0.15s;
+}
+.map-marker:hover { transform: scale(1.3); }
+.map-back-btn {
+  position: absolute; top: 8px; left: 16px; width: 40px; height: 40px;
+  border-radius: 20px; background: var(--surface); display: flex;
+  align-items: center; justify-content: center; z-index: 10;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.3); border: 1px solid var(--borderLight); cursor: pointer;
+}
+.map-back-btn ion-icon { font-size: 22px; color: var(--textPrimary); }
+.map-title-pill {
+  position: absolute; top: 8px; left: 50%; transform: translateX(-50%);
+  display: flex; align-items: center; gap: 8px; background: var(--surface);
+  padding: 9px 14px; border-radius: 999px; z-index: 10; cursor: pointer;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.3); border: 1px solid var(--borderLight);
+}
+.map-title-pill span { font-size: 15px; font-weight: 600; color: var(--textPrimary); }
+.map-count-chip {
+  background: var(--primary); color: #fff; font-size: 12px; font-weight: 700;
+  padding: 2px 8px; border-radius: 10px; min-width: 24px; text-align: center;
+}
+.map-filter-row {
+  position: absolute; top: 56px; left: 0; right: 0; z-index: 10;
+  display: flex; gap: 8px; padding: 0 16px; overflow-x: auto;
+}
+.map-filter-row::-webkit-scrollbar { display: none; }
+.map-filter-pill {
+  display: flex; align-items: center; gap: 6px; background: var(--surface);
+  padding: 8px 12px; border-radius: 999px; font-size: 13px; font-weight: 500;
+  color: var(--textSecondary); white-space: nowrap; cursor: pointer;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.2); border: 1px solid var(--borderLight); flex-shrink: 0;
+}
+.map-filter-pill ion-icon { font-size: 14px; }
+.map-filter-pill.active { background: var(--primary); color: #fff; border-color: var(--primary); }
+.map-filter-pill.active ion-icon { color: #fff; }
+.map-event-card {
+  position: absolute; bottom: 0; left: 0; right: 0;
+  background: var(--surface); border-radius: 20px 20px 0 0;
+  padding: 8px 24px 28px; z-index: 20;
+  box-shadow: 0 -4px 12px rgba(0,0,0,0.3); border: 1px solid var(--borderLight); border-bottom: none;
+  animation: slideUp 0.25s ease-out;
+}
+.map-card-close {
+  position: absolute; top: 8px; right: 16px; padding: 4px; cursor: pointer; z-index: 1;
+}
+.map-card-btn {
+  flex: 1; display: flex; align-items: center; justify-content: center; gap: 6px;
+  padding: 11px; border-radius: 14px; font-size: 14px; font-weight: 600; cursor: pointer;
+}
+.map-card-btn.primary { background: var(--primary); color: #fff; }
+.map-card-btn.outline { background: var(--surface); color: var(--primary); border: 1.5px solid var(--primary); }
+
+/* Action Sheet */
+.action-sheet { position: absolute; inset: 0; z-index: 50; }
+.action-sheet.hidden { display: none; }
+.action-sheet-overlay { position: absolute; inset: 0; background: rgba(0,0,0,0.5); }
+.action-sheet-content {
+  position: absolute; bottom: 0; left: 0; right: 0;
+  background: var(--surface); border-radius: 18px 18px 0 0;
+  padding: 12px 16px 32px; z-index: 51;
+  animation: slideUp 0.25s ease-out;
+}
+@keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+.action-sheet-handle { width: 36px; height: 5px; border-radius: 3px; background: var(--border); margin: 0 auto 16px; }
+.action-sheet-title { font-size: 18px; font-weight: 700; color: var(--textPrimary); margin-bottom: 16px; padding: 0 4px; }
+.action-sheet-item { display: flex; align-items: center; gap: 14px; padding: 14px 4px; border-bottom: 0.5px solid var(--borderLight); cursor: pointer; }
+.action-sheet-item:last-child { border-bottom: none; }
+.action-sheet-icon { width: 40px; height: 40px; border-radius: 10px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.action-sheet-icon ion-icon { font-size: 20px; color: #fff; }
+.action-sheet-text { flex: 1; }
+.action-sheet-label { font-size: 16px; font-weight: 600; color: var(--textPrimary); }
+.action-sheet-desc { font-size: 13px; color: var(--textTertiary); margin-top: 1px; }
+</style>
+</head>
+<body>
+<div id="phone">
+  <!-- Status Bar -->
+  <div class="status-bar">
+    <div class="time">9:41</div>
+    <div class="icons">
+      <ion-icon name="cellular"></ion-icon>
+      <ion-icon name="wifi"></ion-icon>
+      <ion-icon name="battery-full"></ion-icon>
+    </div>
+  </div>
+
+  <!-- ===================== CONTACTS SCREEN ===================== -->
+  <div id="screen-contacts" class="screen active">
+    <div class="header-bar">
+      <div class="header-title">Contacts</div>
+      <div class="header-actions">
+        <ion-icon name="search-outline"></ion-icon>
+        <div class="chat-icon" onclick="showScreen('conversations')">
+          <ion-icon name="chatbubbles-outline"></ion-icon>
+          <div class="badge">3</div>
+        </div>
+      </div>
+    </div>
+    <div class="filter-row">
+      <div class="filter-pill active">All</div>
+      <div class="filter-pill">Favorites</div>
+      <div class="filter-pill">AI Created</div>
+      <div class="filter-pill">Recent</div>
+      <div class="filter-pill">By Event</div>
+      <div class="filter-pill">By Club</div>
+    </div>
+    <div class="count-text">12 contacts</div>
+    <div class="scroll-content" id="contacts-list"></div>
+    <div class="fab" onclick="toggleActionSheet()">
+      <ion-icon name="add"></ion-icon>
+    </div>
+    <!-- Action Sheet -->
+    <div id="action-sheet" class="action-sheet hidden">
+      <div class="action-sheet-overlay" onclick="toggleActionSheet()"></div>
+      <div class="action-sheet-content">
+        <div class="action-sheet-handle"></div>
+        <div class="action-sheet-title">Add Contact</div>
+        <div class="action-sheet-item" onclick="toggleActionSheet()">
+          <div class="action-sheet-icon" style="background:#0A84FF;"><ion-icon name="mic"></ion-icon></div>
+          <div class="action-sheet-text">
+            <div class="action-sheet-label">AI Dictation</div>
+            <div class="action-sheet-desc">Describe someone you just met</div>
+          </div>
+        </div>
+        <div class="action-sheet-item" onclick="toggleActionSheet()">
+          <div class="action-sheet-icon" style="background:#30D158;"><ion-icon name="person-add"></ion-icon></div>
+          <div class="action-sheet-text">
+            <div class="action-sheet-label">Manual Entry</div>
+            <div class="action-sheet-desc">Type in contact details</div>
+          </div>
+        </div>
+        <div class="action-sheet-item" onclick="toggleActionSheet()">
+          <div class="action-sheet-icon" style="background:#FF9F0A;"><ion-icon name="qr-code"></ion-icon></div>
+          <div class="action-sheet-text">
+            <div class="action-sheet-label">Scan QR Code</div>
+            <div class="action-sheet-desc">Scan someone's contact card</div>
+          </div>
+        </div>
+        <div class="action-sheet-item" onclick="toggleActionSheet()">
+          <div class="action-sheet-icon" style="background:#AF52DE;"><ion-icon name="phone-portrait"></ion-icon></div>
+          <div class="action-sheet-text">
+            <div class="action-sheet-label">Import Contacts</div>
+            <div class="action-sheet-desc">From your phone contacts</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================== FEED SCREEN ===================== -->
+  <div id="screen-feed" class="screen">
+    <div class="header-bar">
+      <div class="header-title">For You</div>
+      <div class="header-actions">
+        <ion-icon name="search-outline"></ion-icon>
+        <div class="chat-icon" onclick="showScreen('conversations')">
+          <ion-icon name="chatbubbles-outline"></ion-icon>
+          <div class="badge">3</div>
+        </div>
+      </div>
+    </div>
+    <div class="filter-row">
+      <div class="filter-pill active">All</div>
+      <div class="filter-pill">LinkedIn</div>
+      <div class="filter-pill">Instagram</div>
+      <div class="filter-pill">X</div>
+      <div class="filter-pill">Events</div>
+      <div class="filter-pill">Clubs</div>
+    </div>
+    <div class="scroll-content" id="feed-list"></div>
+  </div>
+
+  <!-- ===================== EXPLORE SCREEN ===================== -->
+  <div id="screen-explore" class="screen">
+    <div class="header-bar">
+      <div class="header-title">Explore</div>
+      <div class="header-actions">
+        <ion-icon name="search-outline"></ion-icon>
+        <ion-icon name="map-outline" onclick="showScreen('event-map')" style="cursor:pointer;"></ion-icon>
+      </div>
+    </div>
+    <div class="filter-row">
+      <div class="filter-pill active">All</div>
+      <div class="filter-pill">Social</div>
+      <div class="filter-pill">Career Fair</div>
+      <div class="filter-pill">Workshop</div>
+      <div class="filter-pill">Sports</div>
+      <div class="filter-pill">Cultural</div>
+      <div class="filter-pill">Speaker</div>
+    </div>
+    <div class="scroll-content">
+      <div class="coattendees" id="coattendees-section"></div>
+      <div class="section-divider">
+        <span>Upcoming Events</span>
+        <div class="section-divider-line"></div>
+      </div>
+      <div style="height:8px"></div>
+      <div id="events-list"></div>
+    </div>
+    <div class="fab">
+      <ion-icon name="add"></ion-icon>
+    </div>
+  </div>
+
+  <!-- ===================== SCAN SCREEN ===================== -->
+  <div id="screen-scan" class="screen">
+    <div class="qr-screen">
+      <div class="qr-viewfinder">
+        <div class="qr-corner tl"></div>
+        <div class="qr-corner tr"></div>
+        <div class="qr-corner bl"></div>
+        <div class="qr-corner br"></div>
+        <div class="qr-scan-line"></div>
+      </div>
+      <div class="qr-instruction">Point camera at a QR code</div>
+    </div>
+  </div>
+
+  <!-- ===================== CLUBS SCREEN ===================== -->
+  <div id="screen-clubs" class="screen">
+    <div class="header-bar">
+      <div class="header-title">Clubs</div>
+      <div class="header-actions">
+        <ion-icon name="search-outline"></ion-icon>
+      </div>
+    </div>
+    <div class="filter-row">
+      <div class="filter-pill active">All</div>
+      <div class="filter-pill">Following</div>
+      <div class="filter-pill">Academic</div>
+      <div class="filter-pill">Cultural</div>
+      <div class="filter-pill">Sports</div>
+      <div class="filter-pill">Greek</div>
+      <div class="filter-pill">Tech</div>
+    </div>
+    <div class="scroll-content" id="clubs-list"></div>
+  </div>
+
+  <!-- ===================== SETTINGS SCREEN ===================== -->
+  <div id="screen-settings" class="screen">
+    <div class="header-bar">
+      <div class="header-title">Settings</div>
+    </div>
+    <div class="scroll-content">
+      <div class="profile-card">
+        <div class="avatar" style="background:#4F46E5;width:60px;height:60px;border-radius:30px;font-size:22px;"><img src="https://i.pravatar.cc/150?img=15" alt=""></div>
+        <div class="profile-info">
+          <div class="profile-name">Ihsan Duru</div>
+          <div class="profile-email">ihsan@utdallas.edu</div>
+          <div class="profile-tier">Free Tier</div>
+        </div>
+      </div>
+
+      <div class="settings-section">
+        <div class="settings-label">Appearance</div>
+        <div class="theme-toggle">
+          <div class="theme-btn">Light</div>
+          <div class="theme-btn active">Dark</div>
+          <div class="theme-btn">Sepia</div>
+        </div>
+      </div>
+
+      <div class="settings-section">
+        <div class="settings-label">Notifications</div>
+        <div class="settings-card">
+          <div class="settings-item">
+            <div class="settings-icon" style="background:#30D158;"><ion-icon name="notifications"></ion-icon></div>
+            <div class="settings-text">
+              <div class="title">Push Notifications</div>
+              <div class="subtitle">Event reminders & updates</div>
+            </div>
+            <div class="toggle on"><div class="toggle-knob"></div></div>
+          </div>
+          <div class="settings-item">
+            <div class="settings-icon" style="background:#0A84FF;"><ion-icon name="chatbubble"></ion-icon></div>
+            <div class="settings-text">
+              <div class="title">Message Notifications</div>
+              <div class="subtitle">New messages & replies</div>
+            </div>
+            <div class="toggle on"><div class="toggle-knob"></div></div>
+          </div>
+          <div class="settings-item">
+            <div class="settings-icon" style="background:#FF9F0A;"><ion-icon name="people"></ion-icon></div>
+            <div class="settings-text">
+              <div class="title">Club Updates</div>
+              <div class="subtitle">New events from followed clubs</div>
+            </div>
+            <div class="toggle"><div class="toggle-knob"></div></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="settings-section">
+        <div class="settings-label">Account</div>
+        <div class="settings-card">
+          <div class="settings-item">
+            <div class="settings-icon" style="background:#7C3AED;"><ion-icon name="person"></ion-icon></div>
+            <div class="settings-text"><div class="title">Edit Profile</div></div>
+            <ion-icon name="chevron-forward" class="settings-chevron"></ion-icon>
+          </div>
+          <div class="settings-item">
+            <div class="settings-icon" style="background:#0A84FF;"><ion-icon name="logo-linkedin"></ion-icon></div>
+            <div class="settings-text">
+              <div class="title">LinkedIn</div>
+              <div class="subtitle">Connected</div>
+            </div>
+            <ion-icon name="checkmark-circle" style="color:var(--accent);font-size:20px;"></ion-icon>
+          </div>
+          <div class="settings-item">
+            <div class="settings-icon" style="background:#FF453A;"><ion-icon name="school"></ion-icon></div>
+            <div class="settings-text">
+              <div class="title">School Email</div>
+              <div class="subtitle">ihsan@utdallas.edu</div>
+            </div>
+            <ion-icon name="checkmark-circle" style="color:var(--accent);font-size:20px;"></ion-icon>
+          </div>
+          <div class="settings-item">
+            <div class="settings-icon" style="background:#F59E0B;"><ion-icon name="diamond"></ion-icon></div>
+            <div class="settings-text">
+              <div class="title">Subscription</div>
+              <div class="subtitle">Free Tier</div>
+            </div>
+            <ion-icon name="chevron-forward" class="settings-chevron"></ion-icon>
+          </div>
+        </div>
+      </div>
+
+      <div class="settings-section">
+        <div class="settings-label">Privacy & Data</div>
+        <div class="settings-card">
+          <div class="settings-item">
+            <div class="settings-icon" style="background:#06B6D4;"><ion-icon name="eye"></ion-icon></div>
+            <div class="settings-text">
+              <div class="title">Attendance Visibility</div>
+              <div class="subtitle">Public</div>
+            </div>
+            <ion-icon name="chevron-forward" class="settings-chevron"></ion-icon>
+          </div>
+          <div class="settings-item">
+            <div class="settings-icon" style="background:#8B5CF6;"><ion-icon name="shield-checkmark"></ion-icon></div>
+            <div class="settings-text">
+              <div class="title">Profile Visibility</div>
+              <div class="subtitle">Everyone</div>
+            </div>
+            <ion-icon name="chevron-forward" class="settings-chevron"></ion-icon>
+          </div>
+        </div>
+      </div>
+
+      <div class="settings-section">
+        <div class="settings-label">About</div>
+        <div class="settings-card">
+          <div class="settings-item">
+            <div class="settings-text"><div class="title">Version</div></div>
+            <span style="color:var(--textTertiary);font-size:14px;">1.0.0 (6)</span>
+          </div>
+          <div class="settings-item">
+            <div class="settings-text"><div class="title">Privacy Policy</div></div>
+            <ion-icon name="chevron-forward" class="settings-chevron"></ion-icon>
+          </div>
+          <div class="settings-item">
+            <div class="settings-text"><div class="title">Terms of Service</div></div>
+            <ion-icon name="chevron-forward" class="settings-chevron"></ion-icon>
+          </div>
+        </div>
+      </div>
+
+      <div class="signout-btn">Sign Out</div>
+      <div style="height:40px;"></div>
+    </div>
+  </div>
+
+  <!-- ===================== CONTACT DETAIL ===================== -->
+  <div id="screen-contact-detail" class="screen">
+    <div class="detail-header">
+      <div class="back-btn" onclick="goBack()"><ion-icon name="arrow-back"></ion-icon></div>
+      <div class="detail-title">Contact</div>
+      <div class="detail-actions">
+        <ion-icon name="share-outline"></ion-icon>
+        <ion-icon name="create-outline"></ion-icon>
+      </div>
+    </div>
+    <div class="contact-detail-scroll" id="contact-detail-content"></div>
+  </div>
+
+  <!-- ===================== CLUB DETAIL ===================== -->
+  <div id="screen-club-detail" class="screen">
+    <div class="detail-header">
+      <div class="back-btn" onclick="goBack()"><ion-icon name="arrow-back"></ion-icon></div>
+      <div class="detail-title">Club</div>
+      <div class="detail-actions">
+        <ion-icon name="share-outline"></ion-icon>
+      </div>
+    </div>
+    <div class="club-detail-scroll" id="club-detail-content"></div>
+  </div>
+
+  <!-- ===================== CONVERSATIONS ===================== -->
+  <div id="screen-conversations" class="screen">
+    <div class="detail-header">
+      <div class="back-btn" onclick="goBack()"><ion-icon name="arrow-back"></ion-icon></div>
+      <div class="detail-title" style="font-size:22px;font-weight:700;">Messages</div>
+      <div class="detail-actions">
+        <ion-icon name="create-outline"></ion-icon>
+      </div>
+    </div>
+    <div class="scroll-content" id="conversations-list"></div>
+  </div>
+
+  <!-- ===================== CHAT SCREEN ===================== -->
+  <div id="screen-chat" class="screen">
+    <div class="detail-header">
+      <div class="back-btn" onclick="showScreen('conversations')"><ion-icon name="arrow-back"></ion-icon></div>
+      <div class="detail-title" id="chat-title">Sarah Chen</div>
+      <div class="detail-actions">
+        <ion-icon name="information-circle-outline"></ion-icon>
+      </div>
+    </div>
+    <div class="chat-container">
+      <div class="chat-messages" id="chat-messages"></div>
+      <div class="chat-input-bar">
+        <button class="gif-btn">GIF</button>
+        <input class="chat-input" placeholder="Message..." />
+        <button class="send-btn"><ion-icon name="send"></ion-icon></button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================== EVENT MAP ===================== -->
+  <div id="screen-event-map" class="screen">
+    <div class="map-fullscreen">
+      <!-- Map background - OpenStreetMap tiles -->
+      <div class="map-bg" id="map-tiles-container">
+        <div class="map-tiles" id="map-tiles"></div>
+        <!-- Event markers -->
+        <div class="map-marker" style="top:22%;left:35%;background:#22C55E;" onclick="selectMapEvent(0)" title="Spring Career Fair 2026"></div>
+        <div class="map-marker" style="top:38%;left:55%;background:#06B6D4;" onclick="selectMapEvent(1)" title="ACM Weekly Meeting"></div>
+        <div class="map-marker" style="top:48%;left:40%;background:#A855F7;" onclick="selectMapEvent(2)" title="Desi Night Cultural Show"></div>
+        <div class="map-marker" style="top:58%;left:65%;background:#EF4444;" onclick="selectMapEvent(3)" title="Intramural Basketball Finals"></div>
+        <div class="map-marker" style="top:32%;left:72%;background:#3B82F6;" onclick="selectMapEvent(4)" title="AI/ML Research Symposium"></div>
+        <div class="map-marker" style="top:68%;left:30%;background:#F59E0B;" onclick="selectMapEvent(5)" title="Startup Pitch Night"></div>
+      </div>
+
+      <!-- Floating back button -->
+      <div class="map-back-btn" onclick="goBack()">
+        <ion-icon name="arrow-back"></ion-icon>
+      </div>
+
+      <!-- Title pill -->
+      <div class="map-title-pill" onclick="document.getElementById('map-filters').classList.toggle('hidden')">
+        <span>Event Map</span>
+        <div class="map-count-chip">6</div>
+        <ion-icon name="chevron-down" style="font-size:14px;color:var(--textSecondary);"></ion-icon>
+      </div>
+
+      <!-- Filter pills -->
+      <div class="map-filter-row hidden" id="map-filters">
+        <div class="map-filter-pill active">
+          <ion-icon name="globe-outline"></ion-icon> All Events
+        </div>
+        <div class="map-filter-pill">
+          <ion-icon name="restaurant-outline"></ion-icon> Free Food
+        </div>
+        <div class="map-filter-pill">
+          <ion-icon name="ticket-outline"></ion-icon> Free
+        </div>
+        <div class="map-filter-pill">
+          <ion-icon name="school-outline"></ion-icon> On Campus
+        </div>
+        <div class="map-filter-pill">
+          <ion-icon name="calendar-outline"></ion-icon> This Week
+        </div>
+      </div>
+
+      <!-- Bottom event card -->
+      <div class="map-event-card hidden" id="map-event-card">
+        <div class="action-sheet-handle" style="margin-bottom:8px;"></div>
+        <div class="map-card-close" onclick="document.getElementById('map-event-card').classList.add('hidden')">
+          <ion-icon name="close" style="font-size:18px;color:var(--textTertiary);"></ion-icon>
+        </div>
+        <div id="map-card-type" class="event-category" style="margin-bottom:6px;"></div>
+        <div id="map-card-name" style="font-size:18px;font-weight:600;color:var(--textPrimary);margin-bottom:2px;padding-right:28px;"></div>
+        <div id="map-card-club" style="font-size:13px;color:var(--textSecondary);font-weight:600;margin-bottom:10px;"></div>
+        <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:10px;">
+          <div style="display:flex;align-items:center;gap:8px;">
+            <ion-icon name="calendar-outline" style="font-size:16px;color:var(--primary);"></ion-icon>
+            <span id="map-card-date" style="font-size:13px;color:var(--textSecondary);"></span>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <ion-icon name="location-outline" style="font-size:16px;color:var(--primary);"></ion-icon>
+            <span id="map-card-location" style="font-size:13px;color:var(--textSecondary);"></span>
+          </div>
+        </div>
+        <div style="display:flex;gap:8px;margin-bottom:8px;" id="map-card-badges"></div>
+        <div style="display:flex;gap:8px;">
+          <div class="map-card-btn primary" onclick="const e=events[selectedMapIdx];if(e)showEventDetail(e.id);">
+            <ion-icon name="open-outline" style="font-size:16px;"></ion-icon> View Details
+          </div>
+          <div class="map-card-btn outline">
+            <ion-icon name="navigate-outline" style="font-size:16px;"></ion-icon> Directions
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================== EVENT DETAIL ===================== -->
+  <div id="screen-event-detail" class="screen">
+    <div class="detail-header">
+      <div class="back-btn" onclick="goBack()"><ion-icon name="arrow-back"></ion-icon></div>
+      <div class="detail-title">Event</div>
+      <div class="detail-actions">
+        <ion-icon name="share-outline"></ion-icon>
+      </div>
+    </div>
+    <div class="contact-detail-scroll" id="event-detail-content"></div>
+  </div>
+
+  <!-- ===================== TAB BAR ===================== -->
+  <div class="tab-bar" id="tab-bar">
+    <div class="tab-item active" data-tab="contacts" onclick="switchTab('contacts')">
+      <ion-icon name="people"></ion-icon>
+      <span>Contacts</span>
+    </div>
+    <div class="tab-item" data-tab="feed" onclick="switchTab('feed')">
+      <ion-icon name="heart-outline"></ion-icon>
+      <span>For You</span>
+    </div>
+    <div class="tab-item" data-tab="explore" onclick="switchTab('explore')">
+      <ion-icon name="compass-outline"></ion-icon>
+      <span>Explore</span>
+    </div>
+    <div class="tab-item" data-tab="scan" onclick="switchTab('scan')">
+      <ion-icon name="qr-code-outline"></ion-icon>
+      <span>Scan</span>
+    </div>
+    <div class="tab-item" data-tab="clubs" onclick="switchTab('clubs')">
+      <ion-icon name="people-circle-outline"></ion-icon>
+      <span>Clubs</span>
+      <div class="tab-badge">5</div>
+    </div>
+    <div class="tab-item" data-tab="settings" onclick="switchTab('settings')">
+      <ion-icon name="settings-outline"></ion-icon>
+      <span>Settings</span>
+    </div>
+  </div>
+</div>
+
+<script>
+// ─── Mock Data ───────────────────────────────────────────────
+const avatarColors = ['#4F46E5','#7C3AED','#EC4899','#EF4444','#F59E0B','#10B981','#06B6D4','#3B82F6'];
+const getColor = (name) => avatarColors[name.split('').reduce((a,c) => a + c.charCodeAt(0), 0) % avatarColors.length];
+const getInitials = (name) => name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0,2);
+
+const contacts = [
+  { id:1, name:'Sarah Chen', title:'Software Engineer', company:'Google', email:'sarah@google.com', phone:'+1 (469) 555-0142', tags:['Tech','AI/ML'], fav:true, mutual:3, met:'Spring Career Fair', date:'Feb 14', source:'manual', linkedin:'linkedin.com/in/sarahchen', instagram:'@sarahcodes', avatar:'https://i.pravatar.cc/150?img=47' },
+  { id:2, name:'Marcus Johnson', title:'Product Manager', company:'Meta', email:'marcus@meta.com', phone:'+1 (972) 555-0198', tags:['PM','Leadership'], fav:false, mutual:1, met:'HackUTD', date:'Feb 10', source:'dictation', linkedin:'linkedin.com/in/marcusj', avatar:'https://i.pravatar.cc/150?img=68' },
+  { id:3, name:'Priya Patel', title:'Data Scientist', company:'Amazon', email:'priya@amazon.com', phone:'+1 (214) 555-0267', tags:['Data','Python'], fav:true, mutual:5, met:'ACM Meeting', date:'Feb 8', source:'manual', instagram:'@priya.ds', avatar:'https://i.pravatar.cc/150?img=45' },
+  { id:4, name:'James Rodriguez', title:'UX Designer', company:'Apple', email:'james@apple.com', phone:'+1 (817) 555-0334', tags:['Design','UI/UX'], fav:false, mutual:0, met:'Design Workshop', date:'Jan 28', source:'linkedin', avatar:'https://i.pravatar.cc/150?img=53' },
+  { id:5, name:'Emily Zhang', title:'CS Student', company:'UT Dallas', email:'emily@utdallas.edu', phone:'+1 (469) 555-0411', tags:['Student','React'], fav:false, mutual:8, met:'WiCS Hackathon', date:'Jan 22', source:'manual', avatar:'https://i.pravatar.cc/150?img=44' },
+  { id:6, name:'Ahmed Hassan', title:'ML Engineer', company:'NVIDIA', email:'ahmed@nvidia.com', phone:'+1 (972) 555-0488', tags:['AI','CUDA'], fav:true, mutual:2, met:'AI Summit', date:'Jan 15', source:'dictation', avatar:'https://i.pravatar.cc/150?img=59' },
+  { id:7, name:'Sofia Martinez', title:'Marketing Lead', company:'Stripe', email:'sofia@stripe.com', phone:'+1 (214) 555-0555', tags:['Marketing','Fintech'], fav:false, mutual:0, met:'Startup Mixer', date:'Jan 10', source:'manual', avatar:'https://i.pravatar.cc/150?img=43' },
+  { id:8, name:'David Kim', title:'iOS Developer', company:'Uber', email:'david@uber.com', phone:'+1 (469) 555-0622', tags:['iOS','Swift'], fav:false, mutual:4, met:'Mobile Dev Meetup', date:'Jan 5', source:'linkedin', avatar:'https://i.pravatar.cc/150?img=12' },
+  { id:9, name:'Aisha Williams', title:'Research Assistant', company:'MIT', email:'aisha@mit.edu', phone:'+1 (617) 555-0699', tags:['Research','NLP'], fav:false, mutual:1, met:'NLP Workshop', date:'Dec 20', source:'manual', avatar:'https://i.pravatar.cc/150?img=38' },
+  { id:10, name:'Ryan O\'Connor', title:'Backend Engineer', company:'Spotify', email:'ryan@spotify.com', phone:'+1 (512) 555-0766', tags:['Backend','Go'], fav:false, mutual:0, met:'Tech Mixer', date:'Dec 15', source:'dictation', avatar:'https://i.pravatar.cc/150?img=11' },
+  { id:11, name:'Mei Lin', title:'Frontend Developer', company:'Netflix', email:'mei@netflix.com', phone:'+1 (408) 555-0833', tags:['Frontend','Vue'], fav:true, mutual:6, met:'React Conf', date:'Dec 10', source:'manual', avatar:'https://i.pravatar.cc/150?img=21' },
+  { id:12, name:'Carlos Rivera', title:'DevOps Engineer', company:'AWS', email:'carlos@aws.com', phone:'+1 (206) 555-0900', tags:['DevOps','Cloud'], fav:false, mutual:2, met:'Cloud Summit', date:'Dec 5', source:'linkedin', avatar:'https://i.pravatar.cc/150?img=14' },
+];
+
+const feedItems = [
+  { user:'Sarah Chen', platform:'linkedin', time:'2h ago', text:'Excited to share that I\'ve been promoted to Senior Software Engineer at Google! Thank you to everyone who supported me on this journey. #GoogleLife #SWE', hasImage:true, imageUrl:'https://picsum.photos/seed/google1/400/250', likes:47, comments:12 },
+  { user:'Marcus Johnson', platform:'linkedin', time:'5h ago', text:'Just published my latest article on product-led growth strategies for B2B SaaS. Link in comments! Would love your feedback.', hasImage:false, likes:23, comments:8 },
+  { user:'Priya Patel', platform:'instagram', time:'1d ago', text:'Beautiful sunset from the office rooftop. Sometimes you need to step away from the data and enjoy the view.', hasImage:true, imageUrl:'https://picsum.photos/seed/sunset7/400/250', likes:156, comments:24 },
+  { user:'Emily Zhang', platform:'instagram', time:'1d ago', text:'Hackathon project demo day! Our team built an AI-powered study buddy app. So proud of what we accomplished in 24 hours!', hasImage:true, imageUrl:'https://picsum.photos/seed/hack22/400/250', likes:89, comments:15 },
+  { user:'Ahmed Hassan', platform:'linkedin', time:'2d ago', text:'Thrilled to announce our paper on efficient transformer architectures was accepted at NeurIPS 2026! Big thanks to my co-authors.', hasImage:false, likes:312, comments:45 },
+  { user:'David Kim', platform:'twitter', time:'3d ago', text:'Hot take: SwiftUI is now better than UIKit for 90% of use cases. The latest APIs make complex animations trivial. Fight me.', hasImage:false, likes:234, comments:67 },
+];
+
+const events = [
+  { id:1, name:'Spring Career Fair 2026', date:'Mar 5, 2026', time:'10:00 AM', location:'Student Union Ballroom', type:'Career Fair', rsvp:234, club:'Career Center', cat:'career' },
+  { id:2, name:'ACM Weekly Meeting', date:'Feb 28, 2026', time:'6:00 PM', location:'ECSS 2.312', type:'Meeting', rsvp:45, club:'ACM UTD', cat:'tech' },
+  { id:3, name:'Desi Night Cultural Show', date:'Mar 1, 2026', time:'7:00 PM', location:'Activity Center', type:'Cultural', rsvp:189, club:'Indian Student Association', cat:'cultural' },
+  { id:4, name:'Intramural Basketball Finals', date:'Mar 3, 2026', time:'8:00 PM', location:'Recreation Center', type:'Sports', rsvp:67, club:'Rec Sports', cat:'sports' },
+  { id:5, name:'AI/ML Research Symposium', date:'Mar 8, 2026', time:'2:00 PM', location:'Davidson-Gundy Alumni Center', type:'Speaker', rsvp:120, club:'CS Department', cat:'academic' },
+  { id:6, name:'Startup Pitch Night', date:'Mar 10, 2026', time:'6:30 PM', location:'Blackstone LaunchPad', type:'Social', rsvp:56, club:'Entrepreneurship Club', cat:'professional' },
+];
+
+const coattendees = [
+  { name:'Alex T.', color:'#4F46E5', avatar:'https://i.pravatar.cc/100?img=3' },
+  { name:'Nina R.', color:'#EC4899', avatar:'https://i.pravatar.cc/100?img=32' },
+  { name:'Jake M.', color:'#10B981', avatar:'https://i.pravatar.cc/100?img=7' },
+  { name:'Zara K.', color:'#F59E0B', avatar:'https://i.pravatar.cc/100?img=23' },
+  { name:'Leo W.', color:'#7C3AED', avatar:'https://i.pravatar.cc/100?img=8' },
+  { name:'Mia S.', color:'#EF4444', avatar:'https://i.pravatar.cc/100?img=25' },
+  { name:'Omar H.', color:'#06B6D4', avatar:'https://i.pravatar.cc/100?img=60' },
+];
+
+const clubs = [
+  { id:1, name:'ACM UTD', category:'Tech', members:342, following:true, handle:'@acm.utd', bio:'Association for Computing Machinery at UT Dallas. Weekly meetings, hackathons, and tech talks.', posts:48, followers:1243, followingCount:156, logo:'https://picsum.photos/seed/acm/100/100' },
+  { id:2, name:'Indian Student Association', category:'Cultural', members:567, following:true, handle:'@isa.utd', bio:'Celebrating Indian culture and heritage at UTD. Events, festivals, and community building.', posts:124, followers:2341, followingCount:89, logo:'https://picsum.photos/seed/isa/100/100' },
+  { id:3, name:'Alpha Epsilon Pi', category:'Greek Life', members:45, following:false, handle:'@aepi.utd', bio:'AEPi - The world\'s Jewish fraternity. Brotherhood, philanthropy, and leadership development.', posts:67, followers:890, followingCount:234, logo:'https://picsum.photos/seed/aepi/100/100' },
+  { id:4, name:'Women in Computer Science', category:'Tech', members:234, following:true, handle:'@wics.utd', bio:'Empowering women in technology. Mentorship, workshops, and networking events.', posts:56, followers:1567, followingCount:178, logo:'https://picsum.photos/seed/wics/100/100' },
+  { id:5, name:'Dance Ensemble', category:'Arts', members:89, following:false, handle:'@dance.utd', bio:'UTD\'s premier dance organization. Hip hop, contemporary, K-pop, and more!', posts:93, followers:2100, followingCount:312, logo:'https://picsum.photos/seed/dance/100/100' },
+  { id:6, name:'Entrepreneurship Club', category:'Professional', members:156, following:false, handle:'@eclub.utd', bio:'Building the next generation of entrepreneurs. Pitch nights, mentorship, and startup resources.', posts:34, followers:987, followingCount:145, logo:'https://picsum.photos/seed/eclub/100/100' },
+  { id:7, name:'Korean Student Association', category:'Cultural', members:189, following:true, handle:'@ksa.utd', bio:'Sharing Korean culture through food, music, and community at UT Dallas.', posts:78, followers:1876, followingCount:203, logo:'https://picsum.photos/seed/ksa/100/100' },
+  { id:8, name:'Comet Robotics', category:'Tech', members:78, following:false, handle:'@robotics.utd', bio:'Building robots and competing in national competitions. VEX, FIRST, and custom builds.', posts:41, followers:654, followingCount:98, logo:'https://picsum.photos/seed/robo/100/100' },
+];
+
+const conversations = [
+  { id:1, name:'Sarah Chen', lastMsg:'Hey! Are you going to the career fair next week?', time:'2:30 PM', unread:2, type:'dm' },
+  { id:2, name:'ACM Study Group', lastMsg:'Marcus: The meeting is moved to Room 312', time:'1:15 PM', unread:5, type:'group' },
+  { id:3, name:'Priya Patel', lastMsg:'You: Thanks for the notes!', time:'Yesterday', unread:0, type:'dm' },
+  { id:4, name:'HackUTD Team', lastMsg:'Emily: Sent a GIF', time:'Yesterday', unread:0, type:'group' },
+  { id:5, name:'Ahmed Hassan', lastMsg:'Let me know if you need help with the ML project', time:'Mon', unread:1, type:'dm' },
+  { id:6, name:'James Rodriguez', lastMsg:'You: The mockups look great!', time:'Sun', unread:0, type:'dm' },
+];
+
+const chatMessages = [
+  { own:false, text:'Hey! Are you going to the career fair next week?', time:'2:28 PM' },
+  { own:true, text:'Yes! I\'m definitely planning to go. Are you?', time:'2:29 PM' },
+  { own:false, text:'For sure! Google and Meta will both be there. Want to go together?', time:'2:30 PM' },
+  { own:true, text:'That sounds great! What time are you thinking?', time:'2:31 PM' },
+  { own:false, text:'Maybe around 10:30? We can grab coffee first at Starbucks', time:'2:32 PM' },
+  { own:true, gif:true, text:'', time:'2:33 PM', gifUrl:'https://media.giphy.com/media/3o7abKhOpu0NwenH3O/giphy.gif' },
+  { own:false, text:'Haha perfect! See you there!', time:'2:34 PM' },
+  { own:true, text:'Can\'t wait! Let me know if anyone else wants to join', time:'2:35 PM' },
+];
+
+// ─── Render Functions ────────────────────────────────────────
+function renderContacts() {
+  const list = document.getElementById('contacts-list');
+  list.innerHTML = contacts.map(c => `
+    <div class="contact-card" onclick="showContactDetail(${c.id})">
+      <div class="avatar" style="background:${getColor(c.name)}">${c.avatar ? `<img src="${c.avatar}" alt="">` : getInitials(c.name)}</div>
+      <div class="contact-info">
+        <div class="contact-name">${c.name}</div>
+        <div class="contact-sub">${c.title} at ${c.company}</div>
+        <div class="contact-meta">
+          ${c.tags.map(t => `<span class="tag">${t}</span>`).join('')}
+          ${c.source === 'dictation' ? '<span class="tag primary">AI</span>' : ''}
+          ${c.mutual > 0 ? `<span class="mutual-badge"><ion-icon name="people" style="font-size:10px"></ion-icon> ${c.mutual}</span>` : ''}
+        </div>
+      </div>
+      ${c.fav ? '<ion-icon name="star" class="contact-fav"></ion-icon>' : ''}
+    </div>
+  `).join('');
+}
+
+function renderFeed() {
+  const list = document.getElementById('feed-list');
+  const platformIcons = { linkedin:'logo-linkedin', instagram:'logo-instagram', twitter:'logo-twitter' };
+  const platformColors = { linkedin:'#0A66C2', instagram:'#E1306C', twitter:'#1DA1F2' };
+  const getAvatar = (name) => { const c = contacts.find(x => x.name === name); return c?.avatar; };
+  list.innerHTML = feedItems.map(f => `
+    <div class="feed-card">
+      <div class="feed-header">
+        <div class="feed-avatar" style="background:${getColor(f.user)}">${getAvatar(f.user) ? `<img src="${getAvatar(f.user)}" style="width:100%;height:100%;border-radius:inherit;object-fit:cover;">` : getInitials(f.user)}</div>
+        <div class="feed-user">
+          <div class="feed-username">${f.user}</div>
+          <div class="feed-time">${f.time}</div>
+        </div>
+        <ion-icon name="${platformIcons[f.platform]}" style="font-size:20px;color:${platformColors[f.platform]}"></ion-icon>
+      </div>
+      <div class="feed-body">
+        <div class="feed-text">${f.text}</div>
+      </div>
+      ${f.hasImage ? `<div class="feed-image" style="${f.imageUrl ? 'background:url('+f.imageUrl+') center/cover no-repeat;' : ''}"><ion-icon name="image-outline" style="${f.imageUrl ? 'display:none' : ''}"></ion-icon></div>` : ''}
+      <div class="feed-actions">
+        <div class="feed-action"><ion-icon name="heart-outline"></ion-icon> ${f.likes}</div>
+        <div class="feed-action"><ion-icon name="chatbubble-outline"></ion-icon> ${f.comments}</div>
+        <div class="feed-action"><ion-icon name="share-outline"></ion-icon></div>
+      </div>
+    </div>
+  `).join('') + `
+    <div class="caught-up">
+      <div class="caught-up-line"></div>
+      <div class="caught-up-text">You're all caught up</div>
+      <div class="caught-up-line"></div>
+    </div>
+  `;
+}
+
+function renderEvents() {
+  const list = document.getElementById('events-list');
+  list.innerHTML = events.map(e => `
+    <div class="event-card" onclick="showEventDetail(${e.id})">
+      <span class="event-category cat-${e.cat}">${e.type}</span>
+      <div class="event-name">${e.name}</div>
+      <div class="event-detail"><ion-icon name="calendar-outline"></ion-icon> ${e.date} &bull; ${e.time}</div>
+      <div class="event-detail"><ion-icon name="location-outline"></ion-icon> ${e.location}</div>
+      <div class="event-footer">
+        <div class="event-rsvp"><ion-icon name="people" style="font-size:12px"></ion-icon> ${e.rsvp} RSVPs</div>
+        <div class="event-club">${e.club}</div>
+      </div>
+    </div>
+  `).join('');
+}
+
+function renderCoattendees() {
+  const section = document.getElementById('coattendees-section');
+  section.innerHTML = `
+    <div class="coattendees-title">People at your events</div>
+    <div class="coattendees-scroll">
+      ${coattendees.map(c => `
+        <div class="coattendee">
+          <div class="avatar" style="background:${c.color};width:44px;height:44px;border-radius:22px;font-size:14px;">${c.avatar ? `<img src="${c.avatar}" alt="">` : getInitials(c.name)}</div>
+          <div class="coattendee-name">${c.name}</div>
+        </div>
+      `).join('')}
+    </div>
+  `;
+}
+
+function renderClubs() {
+  const list = document.getElementById('clubs-list');
+  const catColorMap = { Tech:'#06B6D4', Cultural:'#A855F7', 'Greek Life':'#8B5CF6', Arts:'#EC4899', Professional:'#F59E0B' };
+  list.innerHTML = clubs.map(c => `
+    <div class="club-card" onclick="showClubDetail(${c.id})">
+      <div class="club-avatar" style="background:${catColorMap[c.category] || '#3B82F6'}20;color:${catColorMap[c.category] || '#3B82F6'};overflow:hidden;">
+        ${c.logo ? `<img src="${c.logo}" style="width:100%;height:100%;object-fit:cover;border-radius:inherit;">` : '<ion-icon name="people"></ion-icon>'}
+      </div>
+      <div class="club-info">
+        <div class="club-name">${c.name}</div>
+        <div class="club-category">${c.category}</div>
+        <div class="club-members">${c.members} members</div>
+      </div>
+      <button class="club-follow-btn ${c.following ? 'following' : ''}">${c.following ? 'Following' : 'Follow'}</button>
+    </div>
+  `).join('');
+}
+
+function renderConversations() {
+  const list = document.getElementById('conversations-list');
+  list.innerHTML = conversations.map(c => `
+    <div class="conv-item" onclick="openChat('${c.name}')">
+      <div class="avatar" style="background:${getColor(c.name)}">
+        ${c.type === 'group' ? '<ion-icon name="people" style="font-size:20px;color:#fff"></ion-icon>' : (() => { const ct = contacts.find(x => x.name === c.name); return ct?.avatar ? `<img src="${ct.avatar}" alt="">` : getInitials(c.name); })()}
+      </div>
+      <div class="conv-content">
+        <div class="conv-top">
+          <div class="conv-name ${c.unread > 0 ? 'unread' : ''}">${c.name}</div>
+          <div class="conv-time ${c.unread > 0 ? 'unread' : ''}">${c.time}</div>
+        </div>
+        <div class="conv-bottom">
+          <div class="conv-preview ${c.unread > 0 ? 'unread' : ''}">${c.lastMsg}</div>
+          ${c.unread > 0 ? `<div class="conv-unread">${c.unread}</div>` : ''}
+        </div>
+      </div>
+    </div>
+  `).join('');
+}
+
+function renderChat() {
+  const messages = document.getElementById('chat-messages');
+  messages.innerHTML = chatMessages.map(m => {
+    if (m.gif) {
+      return `
+        <div class="message-row ${m.own ? 'own' : 'other'}">
+          <div class="message-gif">
+            <img src="${m.gifUrl}" alt="GIF" style="width:200px;border-radius:14px;">
+            <div class="giphy-attr">via GIPHY</div>
+            <div class="message-time">${m.time}</div>
+          </div>
+        </div>
+      `;
+    }
+    return `
+      <div class="message-row ${m.own ? 'own' : 'other'}">
+        <div class="message-bubble">
+          ${m.text}
+          <div class="message-time">${m.time}</div>
+        </div>
+      </div>
+    `;
+  }).join('');
+  messages.scrollTop = messages.scrollHeight;
+}
+
+// ─── Navigation ──────────────────────────────────────────────
+let navStack = ['contacts'];
+const tabScreens = ['contacts','feed','explore','scan','clubs','settings'];
+
+function switchTab(tab) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(`screen-${tab}`).classList.add('active');
+  document.querySelectorAll('.tab-item').forEach(t => {
+    t.classList.toggle('active', t.dataset.tab === tab);
+    const icon = t.querySelector('ion-icon');
+    const iconName = icon.getAttribute('name').replace('-outline','');
+    icon.setAttribute('name', t.dataset.tab === tab ? iconName : iconName + '-outline');
+  });
+  document.getElementById('tab-bar').classList.remove('hidden');
+  navStack = [tab];
+}
+
+function showScreen(screen) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(`screen-${screen}`).classList.add('active');
+  if (!tabScreens.includes(screen)) {
+    document.getElementById('tab-bar').classList.add('hidden');
+  }
+  navStack.push(screen);
+}
+
+function goBack() {
+  navStack.pop();
+  const prev = navStack[navStack.length - 1] || 'contacts';
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(`screen-${prev}`).classList.add('active');
+  if (tabScreens.includes(prev)) {
+    document.getElementById('tab-bar').classList.remove('hidden');
+  }
+}
+
+function showContactDetail(id) {
+  const c = contacts.find(x => x.id === id);
+  if (!c) return;
+  const content = document.getElementById('contact-detail-content');
+  content.innerHTML = `
+    <div class="cd-profile">
+      <div class="avatar lg" style="background:${getColor(c.name)}">${c.avatar ? `<img src="${c.avatar}" alt="">` : getInitials(c.name)}</div>
+      <div class="cd-name">${c.name}</div>
+      <div class="cd-title">${c.title} at ${c.company}</div>
+      <div class="contact-meta" style="margin-top:8px;">
+        ${c.tags.map(t => `<span class="tag">${t}</span>`).join('')}
+      </div>
+      <div class="cd-actions">
+        <div class="cd-action-btn"><ion-icon name="chatbubble-outline"></ion-icon><span>Message</span></div>
+        <div class="cd-action-btn"><ion-icon name="call-outline"></ion-icon><span>Call</span></div>
+        <div class="cd-action-btn"><ion-icon name="mail-outline"></ion-icon><span>Email</span></div>
+        <div class="cd-action-btn"><ion-icon name="share-outline"></ion-icon><span>Share</span></div>
+      </div>
+    </div>
+
+    <div class="cd-section">
+      <div class="cd-section-title">Contact Info</div>
+      <div class="cd-card">
+        <div class="cd-row">
+          <ion-icon name="mail-outline" class="cd-row-icon"></ion-icon>
+          <div class="cd-row-text">
+            <div class="cd-row-label">Email</div>
+            <div class="cd-row-value">${c.email}</div>
+          </div>
+        </div>
+        <div class="cd-row">
+          <ion-icon name="call-outline" class="cd-row-icon"></ion-icon>
+          <div class="cd-row-text">
+            <div class="cd-row-label">Phone</div>
+            <div class="cd-row-value">${c.phone}</div>
+          </div>
+        </div>
+        ${c.linkedin ? `
+        <div class="cd-row">
+          <ion-icon name="logo-linkedin" class="cd-row-icon"></ion-icon>
+          <div class="cd-row-text">
+            <div class="cd-row-label">LinkedIn</div>
+            <div class="cd-row-value" style="color:var(--primary)">${c.linkedin}</div>
+          </div>
+        </div>` : ''}
+        ${c.instagram ? `
+        <div class="cd-row">
+          <ion-icon name="logo-instagram" class="cd-row-icon"></ion-icon>
+          <div class="cd-row-text">
+            <div class="cd-row-label">Instagram</div>
+            <div class="cd-row-value" style="color:var(--primary)">${c.instagram}</div>
+          </div>
+        </div>` : ''}
+      </div>
+    </div>
+
+    <div class="cd-section">
+      <div class="cd-section-title">How You Met</div>
+      <div class="cd-card">
+        <div class="cd-row">
+          <ion-icon name="calendar-outline" class="cd-row-icon"></ion-icon>
+          <div class="cd-row-text">
+            <div class="cd-row-label">Event</div>
+            <div class="cd-row-value">${c.met}</div>
+          </div>
+        </div>
+        <div class="cd-row">
+          <ion-icon name="time-outline" class="cd-row-icon"></ion-icon>
+          <div class="cd-row-text">
+            <div class="cd-row-label">Date</div>
+            <div class="cd-row-value">${c.date}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    ${c.mutual > 0 ? `
+    <div class="cd-section">
+      <div class="cd-section-title">Mutual Connections</div>
+      <div class="cd-card">
+        <div class="cd-row">
+          <ion-icon name="people-outline" class="cd-row-icon" style="color:var(--accent)"></ion-icon>
+          <div class="cd-row-text">
+            <div class="cd-row-value" style="color:var(--accent)">${c.mutual} mutual connections</div>
+          </div>
+          <ion-icon name="chevron-forward" style="color:var(--textTertiary);font-size:18px;"></ion-icon>
+        </div>
+      </div>
+    </div>` : ''}
+    <div style="height:40px;"></div>
+  `;
+  showScreen('contact-detail');
+}
+
+function showClubDetail(id) {
+  const c = clubs.find(x => x.id === id);
+  if (!c) return;
+  const catColorMap = { Tech:'#06B6D4', Cultural:'#A855F7', 'Greek Life':'#8B5CF6', Arts:'#EC4899', Professional:'#F59E0B' };
+  const color = catColorMap[c.category] || '#3B82F6';
+  const content = document.getElementById('club-detail-content');
+  content.innerHTML = `
+    <div class="club-detail-profile">
+      <div class="avatar lg" style="background:${color}20;color:${color};font-size:40px;overflow:hidden;">
+        ${c.logo ? `<img src="${c.logo}" alt="">` : '<ion-icon name="people"></ion-icon>'}
+      </div>
+      <div class="club-detail-name">${c.name}</div>
+      <div class="club-detail-handle">${c.handle}</div>
+      <span class="club-detail-cat" style="background:${color}20;color:${color}">${c.category}</span>
+    </div>
+
+    <div class="club-stats">
+      <div class="club-stat">
+        <div class="club-stat-num">${c.followers.toLocaleString()}</div>
+        <div class="club-stat-label">Followers</div>
+      </div>
+      <div class="club-stat">
+        <div class="club-stat-num">${c.followingCount}</div>
+        <div class="club-stat-label">Following</div>
+      </div>
+      <div class="club-stat">
+        <div class="club-stat-num">${c.posts}</div>
+        <div class="club-stat-label">Posts</div>
+      </div>
+    </div>
+
+    <div class="club-action-row">
+      <div class="club-action-btn join">${c.following ? 'Member' : 'Join Club'}</div>
+      <div class="club-action-btn follow">
+        <ion-icon name="${c.following ? 'heart' : 'heart-outline'}" style="font-size:18px;${c.following ? 'color:var(--error)' : ''}"></ion-icon>
+        ${c.following ? 'Following' : 'Follow'}
+      </div>
+    </div>
+
+    <div class="club-bio">${c.bio}</div>
+
+    <div class="cd-section">
+      <div class="cd-section-title">Members (${c.members})</div>
+      <div class="cd-card">
+        ${['President','Vice President','Treasurer','Secretary','Member'].slice(0, Math.min(5, c.members)).map((role, i) => {
+          const names = ['Alex Turner','Nina Rodriguez','Jake Morrison','Zara Khan','Leo Williams'];
+          return `
+          <div class="cd-row">
+            <div class="avatar" style="background:${avatarColors[i]};width:36px;height:36px;border-radius:18px;font-size:13px;">${getInitials(names[i])}</div>
+            <div class="cd-row-text">
+              <div class="cd-row-value" style="font-size:14px;">${names[i]}</div>
+              <div class="cd-row-label">${role}</div>
+            </div>
+            ${i < 2 ? `<span class="tag primary" style="font-size:10px;">${role}</span>` : ''}
+          </div>`;
+        }).join('')}
+      </div>
+    </div>
+
+    <div class="cd-section">
+      <div class="cd-section-title">Recent Posts</div>
+      <div class="club-posts-grid">
+        ${Array(9).fill(0).map((_, i) => `
+          <div class="club-post-thumb" style="background:url(https://picsum.photos/seed/${c.handle.replace('@','')}${i}/200/200) center/cover;"></div>
+        `).join('')}
+      </div>
+    </div>
+    <div style="height:40px;"></div>
+  `;
+  showScreen('club-detail');
+}
+
+function openChat(name) {
+  document.getElementById('chat-title').textContent = name;
+  renderChat();
+  showScreen('chat');
+}
+
+// ─── Event Map ───────────────────────────────────────────────
+let selectedMapIdx = -1;
+function selectMapEvent(idx) {
+  selectedMapIdx = idx;
+  const e = events[idx];
+  if (!e) return;
+  const catColors = { career:'#22C55E', tech:'#06B6D4', cultural:'#A855F7', sports:'#EF4444', academic:'#3B82F6', professional:'#F59E0B', social:'#10B981' };
+  const color = catColors[e.cat] || '#3B82F6';
+  document.getElementById('map-card-type').textContent = e.type;
+  document.getElementById('map-card-type').className = 'event-category cat-' + e.cat;
+  document.getElementById('map-card-name').textContent = e.name;
+  document.getElementById('map-card-club').textContent = e.club;
+  document.getElementById('map-card-date').textContent = e.date + '  ·  ' + e.time;
+  document.getElementById('map-card-location').textContent = e.location;
+  document.getElementById('map-card-badges').innerHTML = `
+    <span style="display:inline-flex;align-items:center;gap:4px;padding:4px 8px;border-radius:999px;font-size:11px;font-weight:600;background:rgba(48,209,88,0.15);color:#30D158;">
+      <ion-icon name="restaurant-outline" style="font-size:12px;"></ion-icon> Free Food
+    </span>
+    <span style="display:inline-flex;align-items:center;gap:4px;padding:4px 8px;border-radius:999px;font-size:11px;font-weight:600;background:rgba(10,132,255,0.15);color:#0A84FF;">
+      <ion-icon name="school-outline" style="font-size:12px;"></ion-icon> On Campus
+    </span>
+  `;
+  document.getElementById('map-event-card').classList.remove('hidden');
+}
+
+// ─── Action Sheet ────────────────────────────────────────────
+function toggleActionSheet() {
+  document.getElementById('action-sheet').classList.toggle('hidden');
+}
+
+// ─── Event Detail ────────────────────────────────────────────
+function showEventDetail(id) {
+  const e = events.find(x => x.id === id);
+  if (!e) return;
+  const catColors = { career:'#22C55E', tech:'#06B6D4', cultural:'#A855F7', sports:'#EF4444', academic:'#3B82F6', professional:'#F59E0B', social:'#10B981' };
+  const color = catColors[e.cat] || '#3B82F6';
+  const attendees = [
+    { name:'Sarah Chen' }, { name:'Marcus Johnson' }, { name:'Emily Zhang' },
+    { name:'Priya Patel' }, { name:'Ahmed Hassan' }
+  ];
+  const content = document.getElementById('event-detail-content');
+  content.innerHTML = `
+    <div class="ed-club-card" onclick="showClubDetail(1)">
+      <div class="avatar" style="background:${color}20;color:${color};width:44px;height:44px;border-radius:12px;font-size:18px;">
+        <ion-icon name="people"></ion-icon>
+      </div>
+      <div class="ed-club-info">
+        <div class="ed-club-name">${e.club}</div>
+        <div class="ed-club-sub">Event Organizer</div>
+      </div>
+      <ion-icon name="chevron-forward" style="color:var(--textTertiary);font-size:18px;"></ion-icon>
+    </div>
+
+    <div class="ed-info-card">
+      <div class="ed-name">${e.name}</div>
+      <div class="ed-type-row">
+        <span class="event-category cat-${e.cat}">${e.type}</span>
+        <span class="event-category" style="background:rgba(48,209,88,0.15);color:#30D158;">Free Food</span>
+      </div>
+      <div class="ed-detail-row">
+        <ion-icon name="calendar-outline"></ion-icon>
+        <div>
+          <div class="ed-detail-text">${e.date}</div>
+          <div class="ed-detail-sub">${e.time}</div>
+        </div>
+      </div>
+      <div class="ed-detail-row">
+        <ion-icon name="location-outline"></ion-icon>
+        <div>
+          <div class="ed-detail-text">${e.location}</div>
+          <div class="ed-detail-sub">UT Dallas Campus</div>
+        </div>
+      </div>
+      <div class="ed-detail-row">
+        <ion-icon name="people-outline"></ion-icon>
+        <div>
+          <div class="ed-detail-text">${e.rsvp} attending</div>
+          <div class="ed-detail-sub">Open to all students</div>
+        </div>
+      </div>
+      <div class="ed-map" style="background:url(https://a.basemaps.cartocdn.com/dark_all/15/9405/13663.png) center/cover no-repeat, var(--borderLight);">
+        <ion-icon name="location" class="ed-map-pin"></ion-icon>
+        <div class="ed-map-label">Directions</div>
+      </div>
+    </div>
+
+    <div class="ed-about">
+      <div class="ed-about-title">About</div>
+      <div class="ed-about-text">Join us for ${e.name}! This event is organized by ${e.club} and open to all UT Dallas students. Come connect with peers, learn new things, and have a great time. Free food and refreshments will be provided.</div>
+    </div>
+
+    <div style="padding:0 16px 8px;">
+      <div class="ed-about-title">RSVP</div>
+    </div>
+    <div class="ed-rsvp-row">
+      <div class="ed-rsvp-btn going" onclick="this.style.opacity=this.style.opacity==='0.5'?'1':'0.5'">
+        <ion-icon name="checkmark-circle"></ion-icon>
+        Going
+      </div>
+      <div class="ed-rsvp-btn maybe" onclick="this.style.opacity=this.style.opacity==='0.5'?'1':'0.5'">
+        <ion-icon name="help-circle"></ion-icon>
+        Maybe
+      </div>
+      <div class="ed-rsvp-btn cantgo" onclick="this.style.opacity=this.style.opacity==='0.5'?'1':'0.5'">
+        <ion-icon name="close-circle"></ion-icon>
+        Can't Go
+      </div>
+    </div>
+
+    <div class="ed-attendees">
+      <div class="ed-about-title">People You Know Going</div>
+      ${attendees.map(a => { const ct = contacts.find(x => x.name === a.name); return `
+        <div class="ed-attendee-row">
+          <div class="avatar" style="background:${getColor(a.name)};width:36px;height:36px;border-radius:18px;font-size:13px;">${ct?.avatar ? `<img src="${ct.avatar}" alt="">` : getInitials(a.name)}</div>
+          <div style="flex:1;">
+            <div style="font-size:14px;font-weight:500;color:var(--textPrimary);">${a.name}</div>
+          </div>
+          <ion-icon name="chatbubble-outline" style="font-size:18px;color:var(--primary);cursor:pointer;"></ion-icon>
+        </div>
+      `; }).join('')}
+    </div>
+
+    <div style="padding:0 16px 16px;">
+      <div class="ed-about-title">More from ${e.club}</div>
+    </div>
+    ${events.filter(ev => ev.club === e.club && ev.id !== e.id).slice(0,2).map(ev => `
+      <div class="event-card" onclick="showEventDetail(${ev.id})">
+        <span class="event-category cat-${ev.cat}">${ev.type}</span>
+        <div class="event-name">${ev.name}</div>
+        <div class="event-detail"><ion-icon name="calendar-outline"></ion-icon> ${ev.date}</div>
+      </div>
+    `).join('') || '<div style="padding:0 16px 16px;font-size:13px;color:var(--textTertiary);">No other upcoming events</div>'}
+    <div style="height:40px;"></div>
+  `;
+  showScreen('event-detail');
+}
+
+// ─── Theme switching ─────────────────────────────────────────
+function setTheme(theme) {
+  const phone = document.getElementById('phone');
+  phone.classList.remove('theme-dark','theme-light','theme-sepia');
+  phone.classList.add('theme-' + theme);
+  // Update outer background
+  const outerBgs = { dark:'#111', light:'#e5e5e5', sepia:'#D4CAAF' };
+  const borderColors = { dark:'#333', light:'#ccc', sepia:'#C8B99A' };
+  document.body.style.background = outerBgs[theme];
+  phone.style.borderColor = borderColors[theme];
+  // Update status bar text color for light themes
+  const statusTime = document.querySelector('.status-bar .time');
+  const statusIcons = document.querySelectorAll('.status-bar .icons ion-icon');
+  const isDark = theme === 'dark';
+  statusTime.style.color = isDark ? '#fff' : (theme === 'sepia' ? '#4B3621' : '#000');
+  statusIcons.forEach(i => i.style.color = isDark ? '#fff' : (theme === 'sepia' ? '#4B3621' : '#000'));
+}
+
+// ─── Filter pill interactivity ───────────────────────────────
+document.querySelectorAll('.filter-row').forEach(row => {
+  row.addEventListener('click', (e) => {
+    if (e.target.classList.contains('filter-pill')) {
+      row.querySelectorAll('.filter-pill').forEach(p => p.classList.remove('active'));
+      e.target.classList.add('active');
+    }
+  });
+});
+
+// Map filter pill interactivity
+document.querySelectorAll('.map-filter-pill').forEach(pill => {
+  pill.addEventListener('click', () => {
+    document.querySelectorAll('.map-filter-pill').forEach(p => p.classList.remove('active'));
+    pill.classList.add('active');
+  });
+});
+
+// ─── Toggle interactivity ────────────────────────────────────
+document.querySelectorAll('.toggle').forEach(t => {
+  t.addEventListener('click', () => t.classList.toggle('on'));
+});
+
+// ─── Theme toggle ────────────────────────────────────────────
+document.querySelectorAll('.theme-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.theme-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    const text = btn.textContent.trim().toLowerCase();
+    setTheme(text);
+  });
+});
+
+// ─── Render Map Tiles (OpenStreetMap) ─────────────────────────
+function renderMapTiles() {
+  const container = document.getElementById('map-tiles');
+  if (!container) return;
+  // UTD campus: lat 32.9886, lng -96.7492, zoom 15
+  const zoom = 15;
+  const lat = 32.9886;
+  const lng = -96.7492;
+  // Convert lat/lng to tile coords
+  const n = Math.pow(2, zoom);
+  const centerX = n * ((lng + 180) / 360);
+  const centerY = n * (1 - Math.log(Math.tan(lat * Math.PI / 180) + 1 / Math.cos(lat * Math.PI / 180)) / Math.PI) / 2;
+  const startX = Math.floor(centerX) - 1;
+  const startY = Math.floor(centerY) - 1;
+  // Use dark CartoDB tiles
+  let html = '';
+  for (let dy = 0; dy < 4; dy++) {
+    for (let dx = 0; dx < 4; dx++) {
+      const tx = startX + dx;
+      const ty = startY + dy;
+      html += `<img src="https://a.basemaps.cartocdn.com/dark_all/${zoom}/${tx}/${ty}.png" alt="">`;
+    }
+  }
+  container.innerHTML = html;
+  // Offset tiles so center is roughly in the middle of the viewport
+  const offsetX = -((centerX - startX) * 256 - 195);
+  const offsetY = -((centerY - startY) * 256 - 375);
+  container.style.left = offsetX + 'px';
+  container.style.top = offsetY + 'px';
+}
+
+// ─── Initialize ──────────────────────────────────────────────
+renderContacts();
+renderFeed();
+renderEvents();
+renderCoattendees();
+renderClubs();
+renderConversations();
+renderChat();
+renderMapTiles();
+</script>
+</body>
+</html>
